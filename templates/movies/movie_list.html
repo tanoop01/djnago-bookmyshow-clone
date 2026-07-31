@@ -1,111 +1,652 @@
 {% extends "users/basic.html" %}
+{% block title %}Movies – BookMySeat{% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <h1 class="text-center mb-5">Movies</h1>
-
-    <div class="row justify-content-center mb-5">
-        <div class="col-md-8">
-            <form method="GET" action="{% url 'movie_list' %}" class="search-bar">
-                <div class="input-group">
-                    <input
-                        class="form-control form-control-lg"
-                        name="search"
-                        placeholder="Search for Movies, Events, Plays, Sports and Activities"
-                        type="text"
-                        value="{{ request.GET.search|default_if_none:'' }}"
-                        aria-label="Search for movies"
-                    />
-                    <div class="input-group-append">
-                        <button class="btn btn-primary" type="submit">
-                            <i class="fas fa-search"></i> Search
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="row" id="movieList">
-        {% for movie in movies %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100 shadow-sm">
-                <img src="{{ movie.image.url }}" class="card-img-top" alt="{{ movie.name }}" style="height: 300px; object-fit: cover;">
-                <div class="card-body">
-                    <h5 class="card-title">{{ movie.name }}</h5>
-                    <p class="card-text">
-                        <i class="fas fa-star text-warning"></i> {{ movie.rating }}
-                    </p>
-                    <p class="card-text">
-                        <small class="text-muted">
-                            <i class="fas fa-users"></i> Cast: {{ movie.cast }}
-                        </small>
-                    </p>
-                </div>
-                <div class="card-footer bg-white border-top-0">
-                    <a href="{% url 'theater_list' movie.id %}" class="btn btn-outline-primary btn-block">
-                        View Theaters <i class="fas fa-chevron-right ml-2"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-        {% empty %}
-        <div class="col-12 text-center">
-            <p class="lead">No movies found. Try a different search term.</p>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-<!-- Bootstrap JS and dependencies -->
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-    .card {
-        transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-    }
-    .card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-    }
+*, *::before, *::after { box-sizing: border-box; }
+body { font-family: 'Poppins', Arial, sans-serif; }
+
+.discovery-page {
+  background: #f0f2f5;
+  padding: 2rem 0 5rem;
+  min-height: 100vh;
+}
+
+/* ── Search ── */
+.search-bar-wrap { position: relative; }
+.search-bar-wrap input[type="text"] {
+  width: 100%;
+  padding: 0.72rem 3.5rem 0.72rem 3rem;
+  border: 2px solid #e2e5ea;
+  border-radius: 50px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: #fff;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.search-bar-wrap input[type="text"]:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.13);
+}
+.search-bar-wrap .s-icon {
+  position: absolute; left: 1rem; top: 50%;
+  transform: translateY(-50%); color: #9ca3af; pointer-events: none;
+}
+.search-bar-wrap button[type="submit"] {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  padding: 0 1.25rem;
+  background: #3b82f6; color: #fff; border: none;
+  border-radius: 0 50px 50px 0;
+  font-family: inherit; font-weight: 700; font-size: 0.85rem;
+  cursor: pointer; transition: background .2s;
+}
+.search-bar-wrap button[type="submit"]:hover { background: #2563eb; }
+
+/* ── Sort ── */
+.sort-select {
+  border: 2px solid #e2e5ea; border-radius: 50px;
+  padding: 0.6rem 2.4rem 0.6rem 1rem;
+  font-family: inherit; font-size: 0.85rem; font-weight: 600;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 0.85rem center;
+  -webkit-appearance: none; appearance: none;
+  color: #374151; cursor: pointer; outline: none;
+  transition: border-color .2s;
+}
+.sort-select:focus { border-color: #3b82f6; }
+
+/* ── Filter Pills ── */
+.pills-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.f-pill {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: #dbeafe; color: #1d4ed8;
+  border: 1px solid #bfdbfe; border-radius: 50px;
+  padding: 0.22rem 0.7rem; font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; transition: background .15s; user-select: none;
+}
+.f-pill:hover { background: #bfdbfe; }
+.f-pill .x { opacity: .65; font-size: 0.9rem; }
+.f-pill:hover .x { opacity: 1; }
+.clear-btn {
+  background: #fee2e2; color: #dc2626;
+  border: 1px solid #fecaca; border-radius: 50px;
+  padding: 0.22rem 0.7rem; font-size: 0.78rem; font-weight: 600;
+  text-decoration: none; transition: background .15s;
+}
+.clear-btn:hover { background: #fecaca; color: #b91c1c; text-decoration: none; }
+
+/* ── Sidebar ── */
+.filter-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 14px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+.fc-head {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  color: #fff; padding: 1rem 1.2rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.fc-head h5 { margin: 0; font-size: 0.92rem; font-weight: 700; letter-spacing: .03em; }
+.fc-head span { font-size: 0.75rem; opacity: .75; }
+.fc-body { padding: 1.2rem; }
+
+.f-section { margin-bottom: 1.1rem; }
+.f-label {
+  display: block; font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: #6b7280; margin-bottom: 0.45rem;
+}
+.f-select, .f-input {
+  width: 100%; border: 1.5px solid #e5e7eb; border-radius: 9px;
+  padding: 0.48rem 0.7rem; font-family: inherit; font-size: 0.84rem;
+  color: #374151; background: #fafafa; outline: none;
+  transition: border-color .2s;
+}
+.f-select:focus, .f-input:focus { border-color: #3b82f6; background: #fff; }
+.f-divider { height: 1px; background: #f1f3f5; margin: 1.1rem 0; }
+
+/* Rating Slider */
+.r-track {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 5px; border-radius: 50px;
+  background: #e5e7eb; outline: none;
+}
+.r-track::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #3b82f6; cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.2);
+}
+.r-track::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #3b82f6; cursor: pointer; border: none;
+}
+.r-display {
+  text-align: center; font-weight: 700;
+  color: #3b82f6; font-size: 0.95rem; margin-top: 0.45rem;
+}
+
+/* Timing Grid */
+.timing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.t-item input[type="radio"] { display: none; }
+.t-item label {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0.45rem 0.2rem; border: 1.5px solid #e5e7eb;
+  border-radius: 9px; cursor: pointer;
+  font-size: 0.73rem; font-weight: 600; color: #6b7280;
+  transition: all .18s; width: 100%; text-align: center;
+}
+.t-item label .ti { font-size: 1.1rem; margin-bottom: 0.1rem; }
+.t-item input[type="radio"]:checked + label {
+  border-color: #3b82f6; background: #eff6ff; color: #2563eb;
+}
+
+/* Filter Buttons */
+.f-actions { display: flex; gap: 0.45rem; margin-top: 1.1rem; }
+.btn-apply {
+  flex: 1; background: #3b82f6; color: #fff; border: none;
+  border-radius: 9px; padding: 0.58rem 1rem;
+  font-family: inherit; font-size: 0.84rem; font-weight: 700;
+  cursor: pointer; transition: background .2s;
+}
+.btn-apply:hover { background: #2563eb; }
+.btn-clear-f {
+  flex: 1; background: #f3f4f6; color: #6b7280; border: none;
+  border-radius: 9px; padding: 0.58rem 1rem;
+  font-family: inherit; font-size: 0.84rem; font-weight: 700;
+  cursor: pointer; text-decoration: none; text-align: center;
+  transition: background .2s; display: inline-block;
+}
+.btn-clear-f:hover { background: #e5e7eb; color: #374151; text-decoration: none; }
+
+/* Mobile Toggle */
+.mob-filter-btn {
+  display: none; width: 100%; background: #fff;
+  border: 1.5px solid #e2e5ea; border-radius: 10px;
+  padding: 0.65rem 1rem; font-family: inherit;
+  font-size: 0.88rem; font-weight: 600; color: #374151;
+  cursor: pointer; margin-bottom: 1rem;
+  justify-content: space-between; align-items: center;
+  transition: background .2s;
+}
+.mob-filter-btn:hover { background: #f9fafb; }
+.sidebar-body { display: block; }
+@media (max-width: 991.98px) {
+  .mob-filter-btn { display: flex; }
+  .sidebar-body { display: none; }
+  .sidebar-body.open { display: block; }
+}
+
+/* ── Results Bar ── */
+.results-bar {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;
+}
+.res-count { font-size: 0.88rem; color: #6b7280; font-weight: 500; }
+.res-count strong { color: #111827; font-size: 1.1rem; }
+
+/* ── Movie Cards ── */
+.movie-card {
+  background: #fff; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 1px 8px rgba(0,0,0,.07);
+  transition: transform .25s, box-shadow .25s;
+  display: flex; flex-direction: column; height: 100%;
+}
+.movie-card:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 18px 42px rgba(0,0,0,.13);
+}
+.mc-thumb { position: relative; overflow: hidden; flex-shrink: 0; }
+.mc-thumb img {
+  width: 100%; height: 270px; object-fit: cover; display: block;
+  transition: transform .3s;
+}
+.movie-card:hover .mc-thumb img { transform: scale(1.06); }
+
+.badge-genre {
+  position: absolute; top: 0.6rem; left: 0.6rem;
+  padding: 0.18rem 0.55rem; border-radius: 50px;
+  font-size: 0.67rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: #fff; backdrop-filter: blur(4px);
+  background: rgba(59,130,246,.88);
+}
+.badge-genre[data-g="action"]      { background: rgba(220,38,38,.88); }
+.badge-genre[data-g="comedy"]      { background: rgba(234,179,8,.9); color: #1a1a1a; }
+.badge-genre[data-g="drama"]       { background: rgba(124,58,237,.88); }
+.badge-genre[data-g="horror"]      { background: rgba(17,24,39,.9); }
+.badge-genre[data-g="romance"]     { background: rgba(236,72,153,.88); }
+.badge-genre[data-g="thriller"]    { background: rgba(234,88,12,.88); }
+.badge-genre[data-g="sci_fi"]      { background: rgba(6,182,212,.88); }
+.badge-genre[data-g="animation"]   { background: rgba(5,150,105,.88); }
+.badge-genre[data-g="documentary"] { background: rgba(75,85,99,.88); }
+.badge-genre[data-g="fantasy"]     { background: rgba(139,92,246,.88); }
+.badge-genre[data-g="adventure"]   { background: rgba(251,146,60,.88); color: #1a1a1a; }
+.badge-genre[data-g="biography"]   { background: rgba(120,113,108,.88); }
+
+.badge-rating {
+  position: absolute; top: 0.6rem; right: 0.6rem;
+  background: rgba(0,0,0,.72); color: #fbbf24;
+  border-radius: 50px; padding: 0.18rem 0.5rem;
+  font-size: 0.78rem; font-weight: 700; backdrop-filter: blur(4px);
+}
+.mc-body { padding: 0.85rem 1rem 0.5rem; flex: 1; }
+.mc-title {
+  font-size: 0.93rem; font-weight: 700; color: #111827;
+  margin-bottom: 0.4rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-bottom: 0.35rem; }
+.lang-chip {
+  background: #eff6ff; color: #3b82f6;
+  border-radius: 4px; padding: 0.1rem 0.42rem;
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.date-chip { font-size: 0.73rem; color: #9ca3af; }
+.mc-cast { font-size: 0.77rem; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.62rem 1rem; border-top: 1px solid #f3f4f6;
+}
+.mc-price { font-size: 0.88rem; font-weight: 700; color: #111827; }
+.mc-price small { font-size: 0.68rem; color: #9ca3af; font-weight: 400; }
+.btn-book {
+  background: #3b82f6; color: #fff; border: none; border-radius: 8px;
+  padding: 0.38rem 0.85rem; font-family: inherit;
+  font-size: 0.79rem; font-weight: 700; cursor: pointer;
+  text-decoration: none; display: inline-block; transition: background .2s;
+}
+.btn-book:hover { background: #2563eb; color: #fff; text-decoration: none; }
+
+/* ── Empty State ── */
+.empty-state {
+  background: #fff; border-radius: 16px; padding: 4rem 2rem;
+  text-align: center; box-shadow: 0 1px 8px rgba(0,0,0,.05);
+}
+.empty-state i { font-size: 3.5rem; color: #d1d5db; }
+.empty-state h5 { color: #374151; margin: 1rem 0 0.4rem; }
+.empty-state p { color: #9ca3af; font-size: 0.88rem; margin: 0; }
+.btn-reset-all {
+  display: inline-block; margin-top: 1.25rem;
+  background: #3b82f6; color: #fff;
+  border-radius: 10px; padding: 0.6rem 1.5rem;
+  font-weight: 700; font-size: 0.88rem; text-decoration: none;
+  transition: background .2s;
+}
+.btn-reset-all:hover { background: #2563eb; color: #fff; text-decoration: none; }
+
+/* ── Pagination ── */
+.pg-wrap { display: flex; justify-content: center; margin-top: 2.25rem; }
+.pg { display: flex; gap: 0.22rem; list-style: none; padding: 0; margin: 0; flex-wrap: wrap; justify-content: center; }
+.pg .page-link {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 36px; height: 36px; border-radius: 9px;
+  border: 1.5px solid #e2e5ea; background: #fff;
+  color: #374151; font-size: 0.84rem; font-weight: 600;
+  font-family: inherit; text-decoration: none; transition: all .15s;
+  padding: 0 0.5rem;
+}
+.pg .page-link:hover { border-color: #3b82f6; color: #3b82f6; background: #eff6ff; text-decoration: none; }
+.pg .page-item.active .page-link { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+.pg .page-item.disabled .page-link { opacity: .4; pointer-events: none; }
+
+/* ── Recommendations ── */
+.sec-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1.5rem; }
+.sec-head h3 { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 0; white-space: nowrap; }
+.sec-line { flex: 1; height: 2px; background: linear-gradient(to right, #3b82f6, transparent); }
+
+/* ── Responsive ── */
+@media (max-width: 767.98px) {
+  .mc-thumb img { height: 230px; }
+  .discovery-page { padding: 1rem 0 4rem; }
+}
+@media (max-width: 575.98px) {
+  .mc-thumb img { height: 200px; }
+  .results-bar { flex-direction: column; align-items: flex-start; }
+}
 </style>
 
-<script>
-    $(document).ready(function() {
-        // Add animation to cards on hover
-        $('.card').hover(
-            function() { $(this).addClass('shadow'); },
-            function() { $(this).removeClass('shadow'); }
-        );
+<div class="discovery-page">
+  <div class="container-fluid" style="max-width:1400px; padding:0 1.25rem;">
 
-        // Implement client-side filtering
-        $('input[name="search"]').on('input', function() {
-            var searchTerm = $(this).val().toLowerCase();
-            $('#movieList .col-md-4').each(function() {
-                var movieTitle = $(this).find('.card-title').text().toLowerCase();
-                if (movieTitle.includes(searchTerm)) {
-                    $(this).show();
-                } else {
-                    $(this).hide();
-                }
-            });
-        });
+    <!-- Top Bar -->
+    <div class="row align-items-center mb-3" style="flex-wrap:wrap; gap:0.75rem 0;">
+      <div class="col-lg-7 col-md-8 mb-2 mb-md-0">
+        <form method="GET" action="{% url 'movie_list' %}" id="searchForm">
+          {% for key, val in request.GET.items %}
+            {% if key != 'search' and key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ val }}">{% endif %}
+          {% endfor %}
+          <div class="search-bar-wrap">
+            <i class="fas fa-search s-icon"></i>
+            <input type="text" name="search" placeholder="Search movies, cast…" value="{{ search_query }}" autocomplete="off">
+            <button type="submit">Search</button>
+          </div>
+        </form>
+      </div>
+      <div class="col-lg-3 col-md-4 col-auto">
+        <form method="GET" action="{% url 'movie_list' %}" id="sortForm">
+          {% for key, val in request.GET.items %}
+            {% if key != 'sort' and key != 'page' %}<input type="hidden" name="{{ key }}" value="{{ val }}">{% endif %}
+          {% endfor %}
+          <select name="sort" class="sort-select" onchange="document.getElementById('sortForm').submit()">
+            {% for val, label in sort_choices %}
+            <option value="{{ val }}" {% if selected_sort == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+    </div>
+
+    <!-- Active Filter Pills -->
+    {% if active_filters %}
+    <div class="pills-row mb-3">
+      <span style="font-size:0.78rem;font-weight:700;color:#6b7280;flex-shrink:0;">Active:</span>
+      {% for key, value in active_filters.items %}
+      <span class="f-pill" data-fkey="{{ key }}">{{ value }} <span class="x">×</span></span>
+      {% endfor %}
+      <a href="{% url 'movie_list' %}{% if search_query %}?search={{ search_query }}{% endif %}" class="clear-btn">Clear All</a>
+    </div>
+    {% endif %}
+
+    <div class="row">
+      <!-- ── Sidebar ── -->
+      <div class="col-lg-3 mb-4">
+        <button class="mob-filter-btn" id="mobFilterBtn" type="button">
+          <span><i class="fas fa-sliders-h" style="margin-right:0.5rem;"></i>Filters
+            {% if active_filters %}<span style="background:#3b82f6;color:#fff;border-radius:50px;padding:0.05rem 0.45rem;font-size:0.7rem;margin-left:0.35rem;">{{ active_filters|length }}</span>{% endif %}
+          </span>
+          <i class="fas fa-chevron-down" id="mobChevron" style="transition:transform .2s;"></i>
+        </button>
+
+        <div class="sidebar-body" id="sidebarBody">
+          <form method="GET" action="{% url 'movie_list' %}" id="filterForm">
+            {% if search_query %}<input type="hidden" name="search" value="{{ search_query }}">{% endif %}
+            <input type="hidden" name="sort" value="{{ selected_sort }}">
+
+            <div class="filter-card">
+              <div class="fc-head">
+                <h5><i class="fas fa-filter" style="margin-right:0.5rem;"></i>Filter Movies</h5>
+                <span>{{ movie_count }} result{{ movie_count|pluralize }}</span>
+              </div>
+              <div class="fc-body">
+
+                <div class="f-section">
+                  <label class="f-label">Genre</label>
+                  <select name="genre" class="f-select auto-sub">
+                    <option value="">All Genres</option>
+                    {% for val, label in genre_choices %}
+                    <option value="{{ val }}" {% if selected_genre == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="f-section">
+                  <label class="f-label">Language</label>
+                  <select name="language" class="f-select auto-sub">
+                    <option value="">All Languages</option>
+                    {% for val, label in language_choices %}
+                    <option value="{{ val }}" {% if selected_language == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="f-section">
+                  <label class="f-label">City</label>
+                  <select name="city" class="f-select auto-sub">
+                    <option value="">All Cities</option>
+                    {% for val, label in city_choices %}
+                    <option value="{{ val }}" {% if selected_city == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="f-section">
+                  <label class="f-label">Theater</label>
+                  <select name="theater" class="f-select auto-sub">
+                    <option value="">All Theaters</option>
+                    {% for t in theaters_qs %}
+                    <option value="{{ t.id }}" {% if selected_theater == t.id|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="f-divider"></div>
+
+                <div class="f-section">
+                  <label class="f-label">Minimum Rating</label>
+                  <input type="range" class="r-track" name="min_rating"
+                    min="0" max="10" step="0.5"
+                    value="{{ min_rating|default:0 }}" id="rSlider">
+                  <div class="r-display" id="rDisplay">
+                    {% if min_rating and min_rating != '0' %}{{ min_rating }} ★{% else %}Any{% endif %}
+                  </div>
+                </div>
+
+                <div class="f-section">
+                  <label class="f-label">Release Date</label>
+                  <div style="display:flex;gap:0.4rem;">
+                    <div style="flex:1;">
+                      <div style="font-size:0.68rem;color:#9ca3af;margin-bottom:0.2rem;">From</div>
+                      <input type="date" name="release_from" class="f-input" value="{{ release_from }}">
+                    </div>
+                    <div style="flex:1;">
+                      <div style="font-size:0.68rem;color:#9ca3af;margin-bottom:0.2rem;">To</div>
+                      <input type="date" name="release_to" class="f-input" value="{{ release_to }}">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="f-divider"></div>
+
+                <div class="f-section">
+                  <label class="f-label">Show Timing</label>
+                  <div class="timing-grid">
+                    <div class="t-item">
+                      <input type="radio" name="show_timing" id="t_all" value="" {% if not show_timing %}checked{% endif %}>
+                      <label for="t_all"><span class="ti">🎬</span>All</label>
+                    </div>
+                    <div class="t-item">
+                      <input type="radio" name="show_timing" id="t_morn" value="morning" {% if show_timing == 'morning' %}checked{% endif %}>
+                      <label for="t_morn"><span class="ti">🌅</span>Morning</label>
+                    </div>
+                    <div class="t-item">
+                      <input type="radio" name="show_timing" id="t_aftn" value="afternoon" {% if show_timing == 'afternoon' %}checked{% endif %}>
+                      <label for="t_aftn"><span class="ti">☀️</span>Afternoon</label>
+                    </div>
+                    <div class="t-item">
+                      <input type="radio" name="show_timing" id="t_eve" value="evening" {% if show_timing == 'evening' %}checked{% endif %}>
+                      <label for="t_eve"><span class="ti">🌆</span>Evening</label>
+                    </div>
+                    <div class="t-item">
+                      <input type="radio" name="show_timing" id="t_ngt" value="night" {% if show_timing == 'night' %}checked{% endif %}>
+                      <label for="t_ngt"><span class="ti">🌙</span>Night</label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="f-actions">
+                  <button type="submit" class="btn-apply">
+                    <i class="fas fa-search" style="margin-right:0.35rem;"></i>Apply
+                  </button>
+                  <a href="{% url 'movie_list' %}{% if search_query %}?search={{ search_query }}{% endif %}" class="btn-clear-f">Clear</a>
+                </div>
+
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Movie Grid ── -->
+      <div class="col-lg-9">
+        <div class="results-bar">
+          <div class="res-count">
+            Showing <strong>{{ movie_count }}</strong> movie{{ movie_count|pluralize }}
+            {% if search_query %} for "<em>{{ search_query }}</em>"{% endif %}
+          </div>
+        </div>
+
+        {% if movies %}
+        <div class="row">
+          {% for movie in movies %}
+          <div class="col-xl-4 col-md-6 col-sm-6 mb-4 d-flex">
+            <div class="movie-card w-100">
+              <a href="{% url 'theater_list' movie.id %}" style="text-decoration:none;color:inherit;display:block;">
+                <div class="mc-thumb">
+                  <img src="{{ movie.image.url }}" alt="{{ movie.name }}" loading="lazy">
+                  <span class="badge-genre" data-g="{{ movie.genre }}">{{ movie.get_genre_display }}</span>
+                  <span class="badge-rating">★ {{ movie.rating }}</span>
+                </div>
+              </a>
+              <div class="mc-body">
+                <div class="mc-title" title="{{ movie.name }}">{{ movie.name }}</div>
+                <div class="mc-meta">
+                  <span class="lang-chip">{{ movie.get_language_display }}</span>
+                  {% if movie.release_date %}<span class="date-chip">{{ movie.release_date|date:"M Y" }}</span>{% endif %}
+                </div>
+                <div class="mc-cast"><i class="fas fa-users" style="margin-right:0.3rem;opacity:.6;"></i>{{ movie.cast|truncatechars:48 }}</div>
+              </div>
+              <div class="mc-foot">
+                <div class="mc-price">₹{{ movie.price }} <small>onwards</small></div>
+                <a href="{% url 'theater_list' movie.id %}" class="btn-book">Book Now</a>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="pg-wrap">
+          <ul class="pg">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?{{ query_params }}&page={{ page_obj.previous_page_number }}">
+                <i class="fas fa-chevron-left" style="font-size:0.75rem;"></i>
+              </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_range %}
+              {% if num == page_obj.paginator.ELLIPSIS %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+              {% elif page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+              {% else %}
+                <li class="page-item"><a class="page-link" href="?{{ query_params }}&page={{ num }}">{{ num }}</a></li>
+              {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?{{ query_params }}&page={{ page_obj.next_page_number }}">
+                <i class="fas fa-chevron-right" style="font-size:0.75rem;"></i>
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+          <i class="fas fa-film"></i>
+          <h5>No movies found</h5>
+          <p>Try adjusting your search terms or removing some filters.</p>
+          <a href="{% url 'movie_list' %}" class="btn-reset-all">
+            <i class="fas fa-redo" style="margin-right:0.4rem;"></i>Reset All Filters
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ── Recommendations ── -->
+    {% if recommendations %}
+    <div class="mt-5">
+      <div class="sec-head">
+        <h3>
+          {% if user.is_authenticated %}
+          <i class="fas fa-magic" style="color:#3b82f6;margin-right:0.5rem;"></i>Recommended for You
+          {% else %}
+          <i class="fas fa-fire" style="color:#ef4444;margin-right:0.5rem;"></i>Popular Right Now
+          {% endif %}
+        </h3>
+        <div class="sec-line"></div>
+      </div>
+      <div class="row">
+        {% for movie in recommendations %}
+        <div class="col-xl-3 col-lg-4 col-md-4 col-sm-6 mb-4 d-flex">
+          <div class="movie-card w-100">
+            <a href="{% url 'theater_list' movie.id %}" style="text-decoration:none;color:inherit;display:block;">
+              <div class="mc-thumb">
+                <img src="{{ movie.image.url }}" alt="{{ movie.name }}" loading="lazy">
+                <span class="badge-genre" data-g="{{ movie.genre }}">{{ movie.get_genre_display }}</span>
+                <span class="badge-rating">★ {{ movie.rating }}</span>
+              </div>
+            </a>
+            <div class="mc-body">
+              <div class="mc-title">{{ movie.name }}</div>
+              <div class="mc-cast">{{ movie.cast|truncatechars:40 }}</div>
+            </div>
+            <div class="mc-foot">
+              <div class="mc-price">₹{{ movie.price }} <small>onwards</small></div>
+              <a href="{% url 'theater_list' movie.id %}" class="btn-book">Book</a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var slider  = document.getElementById('rSlider');
+  var display = document.getElementById('rDisplay');
+  if (slider && display) {
+    slider.addEventListener('input', function () {
+      display.textContent = parseFloat(this.value) === 0 ? 'Any' : this.value + ' ★';
     });
+  }
+
+  document.querySelectorAll('.auto-sub').forEach(function (el) {
+    el.addEventListener('change', function () {
+      document.getElementById('filterForm').submit();
+    });
+  });
+
+  document.querySelectorAll('input[name="show_timing"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      document.getElementById('filterForm').submit();
+    });
+  });
+
+  document.querySelectorAll('[data-fkey]').forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      var key = this.getAttribute('data-fkey');
+      var url = new URL(window.location.href);
+      url.searchParams.delete(key);
+      url.searchParams.delete('page');
+      window.location.href = url.toString();
+    });
+  });
+
+  var mobBtn  = document.getElementById('mobFilterBtn');
+  var sidebar = document.getElementById('sidebarBody');
+  var chevron = document.getElementById('mobChevron');
+  if (mobBtn && sidebar) {
+    mobBtn.addEventListener('click', function () {
+      var open = sidebar.classList.toggle('open');
+      if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+    });
+  }
+}());
 </script>
-<!-- <h1>Movies</h1>
-<ul>
-    {% for movie in movies%}
-    <li>
-        <img src="{{movie.image.url}}" alt="image" >
-        <strong>{{movie.name}}</strong>{{movie.rating}}
-        <p>Cast:{{movie.cast}}</p>
-        <a href="{% url 'theater_list' movie.id %}">View Theaters</a>
-    </li>
-    {% endfor %}
-</ul> -->
 {% endblock %}
