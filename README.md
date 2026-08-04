@@ -53,8 +53,8 @@ djnago-bookmyshow-clone/
 ├── bookmyseat/          # Project config (settings, root URLs, celery app)
 │   ├── celery.py        # Celery task queue configuration
 ├── movies/              # Core booking app
-│   ├── models.py        # Movie, Theater, Seat, Booking, MovieView
-│   ├── views.py         # movie_list, theater_list, book_seats, download_ticket
+│   ├── models.py        # Movie, MoviePoster, Theater, Seat, Booking, Review, MovieView
+│   ├── views.py         # movie_list, movie_detail, add_or_edit_review, report_review, theater_list, book_seats, download_ticket
 │   ├── pdf.py           # ReportLab PDF ticket generator with embedded QR code
 │   ├── tasks.py         # Celery task for async ticket email confirmation
 │   ├── utils.py         # Recommendation engine
@@ -68,6 +68,7 @@ djnago-bookmyshow-clone/
 │   ├── home.html
 │   ├── movies/
 │   │   ├── movie_list.html
+│   │   ├── movie_detail.html
 │   │   ├── theater_list.html
 │   │   └── seat_selection.html
 │   └── users/
@@ -135,10 +136,6 @@ The result count updates after every filter/search combination and is shown both
 
 Top movies ranked by booking count then rating.
 
-**View tracking**
-
-Every visit to a theater listing page (`/movies/<id>/theaters`) creates a `MovieView` record, feeding future recommendations.
-
 ---
 
 ## Task 2 — Automated Ticket Generation and Email Confirmation
@@ -146,13 +143,12 @@ Every visit to a theater listing page (`/movies/<id>/theaters`) creates a `Movie
 ### PDF Ticket & Verification QR Code
 - **PDF Ticket Generator (`movies/pdf.py`)**: Built using ReportLab (`SimpleDocTemplate`, `TableStyle`, `ParagraphStyle`) with custom brand styling (#1E3A8A blue accent).
 - **Dynamic QR Code**: Generated on the fly using `qrcode` library into an in-memory buffer and embedded into the PDF. Contains full verification data: Booking ID, Movie Name, Theater, Screen, Show Timing, Seat Number, Payment Ref, and Verified status.
-- **Included Details**: Movie name, genre, language, rating, theater name, city, screen number, show timing, seat number, booking date, ticket price, unique booking ID, and payment reference.
+- **Consolidated Multi-Seat Tickets**: Groups multiple seats booked in a single transaction into a single email and single PDF ticket.
 
 ### Asynchronous Email Confirmation with Celery
 - **Celery Task (`movies/tasks.py`)**: `@shared_task(bind=True, max_retries=3, default_retry_delay=5, autoretry_for=(Exception,), retry_backoff=True)`.
-- **Non-Blocking Dispatch**: Upon successful seat reservation in `book_seats`, `send_ticket_email_task.delay(booking.id)` is invoked. The booking response returns immediately without blocking for SMTP transmission.
+- **Non-Blocking Dispatch**: Upon successful seat reservation in `book_seats`, background daemon thread triggers `send_ticket_email_task`.
 - **Automatic Retry Policy**: Retries failed email deliveries automatically up to 3 times with exponential backoff.
-- **Graceful Fallback**: If Celery broker/Redis is offline during local evaluation, a non-blocking daemon thread executes the task as a fallback, ensuring the user flow is never disrupted.
 
 ### Ticket Download Feature
 - **Download Endpoint (`/movies/booking/<id>/ticket/`)**: `@login_required` view `download_ticket` streams the PDF as an attachment (`Content-Disposition: attachment; filename="Ticket_BMS-XXXXXX.pdf"`).
@@ -160,30 +156,58 @@ Every visit to a theater listing page (`/movies/<id>/theaters`) creates a `Movie
 
 ---
 
-### Database Field Updates (Task 1 & Task 2)
+## Task 3 — Movie Management with Trailer, Reviews and Ratings
+
+### YouTube Trailer Embedding & Multiple Posters
+- **YouTube Embed Player**: Converts standard YouTube URLs into secure iframe-ready embed URLs (`https://www.youtube-nocookie.com/embed/VIDEO_ID`).
+- **Multiple Posters Gallery**: `MoviePoster` model supporting image uploads and captions displayed as a gallery on movie detail pages and inline in Django Admin.
+- **Age Certification & Duration**: Supports certification levels (`U`, `U/A 7+`, `U/A 13+`, `U/A 16+`, `A`) and movie duration in minutes.
+
+### Verified Reviews & Automated Rating Calculations
+- **Verified Viewer Authorization**: Only registered users with a confirmed `Booking` for the movie can submit ratings (1–10 stars) and written reviews.
+- **Verified Viewer Badge**: Displays a prominent green checkmark badge (`Verified Viewer`) on reviews written by ticket holders.
+- **Automated Average Rating**: `Movie.update_average_rating()` automatically calculates and updates the overall average star rating on every review submit, edit, or deletion.
+- **Review Editing & Reporting**: Authors can edit their reviews, and users can report inappropriate reviews to administrators with custom report reasons (`is_reported`).
+
+### Recommendations Showcase
+- **Similar Movies**: Recommends movies matching the current movie's genre or language.
+- **Trending & Recent Releases**: Showcases trending movies ranked by booking activity alongside recently released titles.
+
+---
+
+### Database Fields Overview
 
 **Movie**
 
-| Field          | Type         | Default  |
-|----------------|--------------|----------|
-| `genre`        | CharField    | `action` |
-| `language`     | CharField    | `hindi`  |
-| `release_date` | DateField    | null     |
-| `price`        | DecimalField | 200.00   |
+| Field               | Type         | Default    | Description                           |
+|---------------------|--------------|------------|---------------------------------------|
+| `genre`             | CharField    | `action`   | 12 choices                            |
+| `language`          | CharField    | `hindi`    | 8 choices                             |
+| `release_date`      | DateField    | null       | Release date                          |
+| `price`             | DecimalField | 200.00     | Ticket price                          |
+| `trailer_url`       | URLField     | null       | YouTube trailer URL                   |
+| `duration_mins`     | IntegerField | 120        | Duration in minutes                   |
+| `age_certification` | CharField    | `U/A 13+`  | Age rating certification              |
 
-**Theater**
+**MoviePoster (new)**
 
-| Field    | Type      | Default    |
-|----------|-----------|------------|
-| `city`   | CharField | `mumbai`   |
-| `screen` | CharField | `Screen 1` |
+| Field     | Type          | Description                           |
+|-----------|---------------|---------------------------------------|
+| `movie`   | FK to Movie   | Associated movie                      |
+| `image`   | ImageField    | Poster image upload                   |
+| `caption` | CharField     | Poster caption                        |
 
-**Booking**
+**Review (new)**
 
-| Field               | Type      | Notes                                  |
-|---------------------|-----------|----------------------------------------|
-| `booking_id`        | CharField | Unique, auto-generated e.g. `BMS-8F92A1B3` |
-| `payment_reference` | CharField | Auto-generated e.g. `PAY-7C2D1E4F9A0B` |
+| Field                | Type          | Description                           |
+|----------------------|---------------|---------------------------------------|
+| `user`               | FK to User    | Review author                         |
+| `movie`              | FK to Movie   | Movie being reviewed                  |
+| `rating`             | IntegerField  | Rating scale 1 to 10                  |
+| `comment`            | TextField     | Written review comment                |
+| `is_verified_viewer` | BooleanField  | True if user booked a ticket          |
+| `is_reported`        | BooleanField  | True if flagged for moderation        |
+| `report_reason`      | TextField     | Reason for reporting                  |
 
 ---
 
@@ -191,23 +215,27 @@ Every visit to a theater listing page (`/movies/<id>/theaters`) creates a `Movie
 
 ```
 Home (/)
-  └── Recommended Movies (personalised or popular)
-
-Movies (/movies/)
-  ├── Search + 7 Filters + 5 Sort modes
-  ├── Paginated grid, 9 per page
-  └── Recommended for You / Popular Right Now
-
-Movie Theaters (/movies/<id>/theaters)      [records MovieView]
-  └── Seat Selection (/movies/theater/<id>/seats/book/)  [login required]
-        ├── Triggers non-blocking Celery email task (with retry policy)
-        └── Profile (/profile/)
-              ├── View Bookings (Booking ID, Screen, Payment Ref)
-              └── "Download Ticket (PDF)" button → Ticket_BMS-XXXXXX.pdf
+  └── Movie Detail (/movies/<id>/detail/)
+        ├── View Poster, Duration, Age Certification, Cast & Description
+        ├── Watch Embedded YouTube Trailer
+        ├── Browse Photo Gallery
+        ├── View Verified Reviews & Ratings
+        ├── Submit/Edit Verified Review (requires Booking)
+        ├── Report Inappropriate Review
+        ├── View Similar & Trending Movies
+        └── Book Tickets → Theaters (/movies/<id>/theaters)
+              └── Seat Selection (/movies/theater/<id>/seats/book/)
+                    ├── Triggers non-blocking email task with PDF ticket
+                    └── Profile (/profile/)
+                          └── "Download Ticket (PDF)" button
 ```
 
 ---
 
 ## Admin Panel
 
-Visit `/admin/` to manage Movies (genre, language, price, release date, poster), Theaters (city, screen, showtime), Seats, Bookings (booking ID, payment ref), and MovieViews.
+Visit `/admin/` to manage:
+- **Movies**: manage details, YouTube trailers, age certification, duration, and `MoviePosterInline` photo gallery.
+- **Reviews**: moderate reviews with `is_reported` & `is_verified_viewer` filters, approve reported reviews, or delete inappropriate content.
+- **Theaters & Showtimes**: assign city, screen, and showtime schedules.
+- **Seats & Bookings**: manage booking records, payment references, and seat availability.

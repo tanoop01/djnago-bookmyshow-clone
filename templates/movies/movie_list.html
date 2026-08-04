@@ -495,7 +495,7 @@ body { font-family: 'Poppins', Arial, sans-serif; }
           {% for movie in movies %}
           <div class="col-xl-4 col-md-6 col-sm-6 mb-4 d-flex">
             <div class="movie-card w-100">
-              <a href="{% url 'theater_list' movie.id %}" style="text-decoration:none;color:inherit;display:block;">
+              <a href="{% url 'movie_detail' movie.id %}" style="text-decoration:none;color:inherit;display:block;">
                 <div class="mc-thumb">
                   <img src="{{ movie.image.url }}" alt="{{ movie.name }}" loading="lazy">
                   <span class="badge-genre" data-g="{{ movie.genre }}">{{ movie.get_genre_display }}</span>
@@ -581,7 +581,7 @@ body { font-family: 'Poppins', Arial, sans-serif; }
         {% for movie in recommendations %}
         <div class="col-xl-3 col-lg-4 col-md-4 col-sm-6 mb-4 d-flex">
           <div class="movie-card w-100">
-            <a href="{% url 'theater_list' movie.id %}" style="text-decoration:none;color:inherit;display:block;">
+            <a href="{% url 'movie_detail' movie.id %}" style="text-decoration:none;color:inherit;display:block;">
               <div class="mc-thumb">
                 <img src="{{ movie.image.url }}" alt="{{ movie.name }}" loading="lazy">
                 <span class="badge-genre" data-g="{{ movie.genre }}">{{ movie.get_genre_display }}</span>

@@ -125,7 +125,7 @@
     <div class="row">
       {% for movie in recommendations %}
       <div class="col-md-3 col-sm-6">
-        <a href="{% url 'theater_list' movie.id %}" class="text-decoration-none">
+        <a href="{% url 'movie_detail' movie.id %}" class="text-decoration-none">
           <div class="card h-100">
             <img src="{{ movie.image.url }}" class="card-img-top" alt="{{ movie.name }}" height="300"/>
             <div class="card-body d-flex flex-column justify-content-between">
@@ -140,7 +140,7 @@
       {% empty %}
       {% for movie in movies|slice:":4" %}
       <div class="col-md-3 col-sm-6">
-        <a href="{% url 'theater_list' movie.id %}" class="text-decoration-none">
+        <a href="{% url 'movie_detail' movie.id %}" class="text-decoration-none">
           <div class="card h-100">
             <img src="{{ movie.image.url }}" class="card-img-top" alt="{{ movie.name }}" height="300"/>
             <div class="card-body d-flex flex-column justify-content-between">

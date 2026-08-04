@@ -3,12 +3,13 @@ from datetime import time as dt_time, datetime, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.db import IntegrityError
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Avg
 from django.core.paginator import Paginator
 from django.utils import timezone
 
-from .models import Movie, Theater, Seat, Booking, MovieView
+from .models import Movie, MoviePoster, Theater, Seat, Booking, Review, MovieView
 from .utils import get_recommendations
 from .pdf import generate_ticket_pdf
 from .tasks import send_ticket_email_task
@@ -28,6 +29,54 @@ TIMING_RANGES = {
     'evening':   (dt_time(17, 0), dt_time(20, 59)),
     'night':     (dt_time(21, 0), dt_time(23, 59)),
 }
+
+
+def check_review_eligibility(user, movie):
+    if not user.is_authenticated:
+        return False, False, None, "Please log in to submit a review."
+
+    user_bookings = Booking.objects.filter(user=user, movie=movie).select_related('theater')
+    if not user_bookings.exists():
+        return False, False, None, "You must book a ticket for this movie to write a review."
+
+    now = timezone.now()
+    duration = timedelta(minutes=movie.duration_mins or 120)
+
+    watched_booking = None
+    upcoming_booking = None
+    earliest_end_time = None
+
+    for booking in user_bookings:
+        show_d = booking.show_date or booking.theater.time.date()
+        show_t = None
+        if booking.show_time:
+            try:
+                show_t = datetime.strptime(booking.show_time, '%I:%M %p').time()
+            except ValueError:
+                pass
+        if not show_t:
+            show_t = booking.theater.time.time()
+
+        show_start = datetime.combine(show_d, show_t)
+        if timezone.is_naive(show_start):
+            show_start = timezone.make_aware(show_start)
+
+        show_end = show_start + duration
+
+        if now >= show_end:
+            watched_booking = booking
+            break
+        else:
+            if earliest_end_time is None or show_end < earliest_end_time:
+                earliest_end_time = show_end
+                upcoming_booking = booking
+
+    if watched_booking:
+        return True, True, watched_booking, "You are eligible to review this movie."
+    else:
+        end_time_str = earliest_end_time.strftime("%b %d, %Y at %I:%M %p") if earliest_end_time else "the show ends"
+        msg = f"You have booked a ticket! You will be able to submit your review after your show completes at {end_time_str}."
+        return True, False, upcoming_booking, msg
 
 
 def async_email_dispatch(booking_id):
@@ -174,6 +223,90 @@ def movie_list(request):
         'query_params':     query_params.urlencode(),
     }
     return render(request, 'movies/movie_list.html', context)
+
+
+def movie_detail(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+    posters = movie.posters.all()
+
+    has_booked, can_review, target_booking, review_msg = check_review_eligibility(request.user, movie)
+    user_review = None
+    if request.user.is_authenticated:
+        user_review = Review.objects.filter(user=request.user, movie=movie).first()
+        MovieView.objects.create(user=request.user, movie=movie)
+    else:
+        if not request.session.session_key:
+            request.session.create()
+        MovieView.objects.create(session_key=request.session.session_key, movie=movie)
+
+    reviews = movie.reviews.filter(is_reported=False).order_by('-created_at')
+    total_reviews = reviews.count()
+
+    similar_movies = (
+        Movie.objects.filter(Q(genre=movie.genre) | Q(language=movie.language))
+        .exclude(id=movie.id)
+        .distinct()[:4]
+    )
+
+    trending_movies = get_recommendations(request, limit=4)
+    recent_movies = Movie.objects.exclude(id=movie.id).order_by('-release_date')[:4]
+
+    context = {
+        'movie': movie,
+        'posters': posters,
+        'has_booked': has_booked,
+        'can_review': can_review,
+        'target_booking': target_booking,
+        'review_msg': review_msg,
+        'user_review': user_review,
+        'reviews': reviews,
+        'total_reviews': total_reviews,
+        'similar_movies': similar_movies,
+        'trending_movies': trending_movies,
+        'recent_movies': recent_movies,
+    }
+    return render(request, 'movies/movie_detail.html', context)
+
+
+@login_required(login_url='/login/')
+def add_or_edit_review(request, movie_id):
+    movie = get_object_or_404(Movie, id=movie_id)
+    has_booked, can_review, target_booking, review_msg = check_review_eligibility(request.user, movie)
+
+    if not can_review:
+        messages.warning(request, review_msg)
+        return redirect('movie_detail', movie_id=movie.id)
+
+    if request.method == 'POST':
+        rating_val = int(request.POST.get('rating', 10))
+        comment = request.POST.get('comment', '').strip()
+
+        if comment:
+            review, created = Review.objects.update_or_create(
+                user=request.user,
+                movie=movie,
+                defaults={
+                    'rating': max(1, min(10, rating_val)),
+                    'comment': comment,
+                    'is_verified_viewer': True,
+                    'is_reported': False,
+                }
+            )
+            messages.success(request, "Your review has been submitted successfully!" if created else "Your review has been updated.")
+
+    return redirect('movie_detail', movie_id=movie.id)
+
+
+@login_required(login_url='/login/')
+def report_review(request, review_id):
+    review = get_object_or_404(Review, id=review_id)
+    if request.method == 'POST':
+        reason = request.POST.get('reason', 'Inappropriate content reported by user').strip()
+        review.is_reported = True
+        review.report_reason = reason
+        review.save()
+        messages.warning(request, "Review has been reported to administrators for moderation.")
+    return redirect('movie_detail', movie_id=review.movie.id)
 
 
 def theater_list(request, movie_id):

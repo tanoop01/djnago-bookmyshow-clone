@@ -1,6 +1,8 @@
 import uuid
+import re
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models import Avg
 
 
 class Movie(models.Model):
@@ -30,18 +32,58 @@ class Movie(models.Model):
         ('marathi', 'Marathi'),
     ]
 
+    AGE_CERTIFICATION_CHOICES = [
+        ('U', 'U - Unrestricted Public Exhibition'),
+        ('U/A 7+', 'U/A 7+ - Parental Guidance for under 7'),
+        ('U/A 13+', 'U/A 13+ - Parental Guidance for under 13'),
+        ('U/A 16+', 'U/A 16+ - Parental Guidance for under 16'),
+        ('A', 'A - Restricted to Adults'),
+        ('S', 'S - Restricted to Special Class'),
+    ]
+
     name = models.CharField(max_length=255)
     image = models.ImageField(upload_to='movies/')
-    rating = models.DecimalField(max_digits=3, decimal_places=1)
+    rating = models.DecimalField(max_digits=3, decimal_places=1, default=0.0)
     cast = models.TextField()
     description = models.TextField(blank=True, null=True)
     genre = models.CharField(max_length=50, choices=GENRE_CHOICES, default='action')
     language = models.CharField(max_length=50, choices=LANGUAGE_CHOICES, default='hindi')
     release_date = models.DateField(null=True, blank=True)
     price = models.DecimalField(max_digits=8, decimal_places=2, default=200.00)
+    trailer_url = models.URLField(blank=True, null=True, help_text="YouTube Trailer URL (e.g. https://www.youtube.com/watch?v=...)")
+    duration_mins = models.PositiveIntegerField(default=120, help_text="Duration in minutes")
+    age_certification = models.CharField(max_length=20, choices=AGE_CERTIFICATION_CHOICES, default='U/A 13+')
+
+    @property
+    def trailer_embed_url(self):
+        if not self.trailer_url:
+            return None
+        match = re.search(r'(?:v=|\/embed\/|\/youtu\.be\/|\/v\/|\/e\/|watch\?v=|\&v=)([^#\&\?]{11})', self.trailer_url)
+        if match:
+            video_id = match.group(1)
+            return f"https://www.youtube-nocookie.com/embed/{video_id}"
+        return None
+
+    def update_average_rating(self):
+        avg_rating = self.reviews.filter(is_reported=False).aggregate(Avg('rating'))['rating__avg']
+        if avg_rating is not None:
+            self.rating = round(avg_rating, 1)
+        else:
+            self.rating = 0.0
+        self.save(update_fields=['rating'])
 
     def __str__(self):
         return self.name
+
+
+class MoviePoster(models.Model):
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='posters')
+    image = models.ImageField(upload_to='movie_posters/')
+    caption = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Poster for {self.movie.name}"
 
 
 class Theater(models.Model):
@@ -97,6 +139,34 @@ class Booking(models.Model):
 
     def __str__(self):
         return f'Booking {self.booking_id} by {self.user.username} for {self.seat.seat_number}'
+
+
+class Review(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveSmallIntegerField(default=10, help_text="Rating from 1 to 10")
+    comment = models.TextField()
+    is_verified_viewer = models.BooleanField(default=False)
+    is_reported = models.BooleanField(default=False)
+    report_reason = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'movie')
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.movie.update_average_rating()
+
+    def delete(self, *args, **kwargs):
+        movie = self.movie
+        super().delete(*args, **kwargs)
+        movie.update_average_rating()
+
+    def __str__(self):
+        return f"Review by {self.user.username} for {self.movie.name} ({self.rating}/10)"
 
 
 class MovieView(models.Model):
