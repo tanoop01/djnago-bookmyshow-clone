@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -61,9 +62,10 @@ class Theater(models.Model):
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='theaters')
     time = models.DateTimeField()
     city = models.CharField(max_length=50, choices=CITY_CHOICES, default='mumbai')
+    screen = models.CharField(max_length=50, default='Screen 1')
 
     def __str__(self):
-        return f'{self.name} - {self.movie.name} at {self.time}'
+        return f'{self.name} ({self.screen}) - {self.movie.name} at {self.time}'
 
 
 class Seat(models.Model):
@@ -80,10 +82,21 @@ class Booking(models.Model):
     seat = models.OneToOneField(Seat, on_delete=models.CASCADE)
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
     theater = models.ForeignKey(Theater, on_delete=models.CASCADE)
+    show_date = models.DateField(null=True, blank=True)
+    show_time = models.CharField(max_length=100, blank=True)
     booked_at = models.DateTimeField(auto_now_add=True)
+    booking_id = models.CharField(max_length=50, unique=True, blank=True)
+    payment_reference = models.CharField(max_length=100, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.booking_id:
+            self.booking_id = f"BMS-{uuid.uuid4().hex[:8].upper()}"
+        if not self.payment_reference:
+            self.payment_reference = f"PAY-{uuid.uuid4().hex[:12].upper()}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'Booking by {self.user.username} for {self.seat.seat_number} at {self.theater.name}'
+        return f'Booking {self.booking_id} by {self.user.username} for {self.seat.seat_number}'
 
 
 class MovieView(models.Model):

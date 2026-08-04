@@ -1,12 +1,17 @@
+import threading
+from datetime import time as dt_time, datetime, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.db.models import Count, Q
 from django.core.paginator import Paginator
-from datetime import time as dt_time
+from django.utils import timezone
 
 from .models import Movie, Theater, Seat, Booking, MovieView
 from .utils import get_recommendations
+from .pdf import generate_ticket_pdf
+from .tasks import send_ticket_email_task
 
 
 SORT_CHOICES = [
@@ -25,13 +30,36 @@ TIMING_RANGES = {
 }
 
 
+def async_email_dispatch(booking_id):
+    def _worker():
+        try:
+            send_ticket_email_task(booking_id)
+        except Exception as e:
+            print("Background email error:", e)
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+def set_city(request):
+    if request.method == 'POST':
+        city = request.POST.get('city', '').lower()
+        if city:
+            request.session['user_city'] = city
+    elif request.method == 'GET':
+        city = request.GET.get('city', '').lower()
+        if city:
+            request.session['user_city'] = city
+    next_url = request.META.get('HTTP_REFERER', '/')
+    return redirect(next_url)
+
+
 def movie_list(request):
     queryset = Movie.objects.all()
 
+    user_city = request.session.get('user_city')
     search_query = request.GET.get('search', '').strip()
     genre        = request.GET.get('genre', '')
     language     = request.GET.get('language', '')
-    city         = request.GET.get('city', '')
+    city         = request.GET.get('city', user_city or '')
     theater_id   = request.GET.get('theater', '')
     min_rating   = request.GET.get('min_rating', '')
     release_from = request.GET.get('release_from', '')
@@ -149,8 +177,32 @@ def movie_list(request):
 
 
 def theater_list(request, movie_id):
-    movie    = get_object_or_404(Movie, id=movie_id)
+    movie = get_object_or_404(Movie, id=movie_id)
+    user_city = request.session.get('user_city')
+
     theaters = Theater.objects.filter(movie=movie)
+    if user_city:
+        city_theaters = theaters.filter(city=user_city)
+        if city_theaters.exists():
+            theaters = city_theaters
+
+    today = timezone.now().date()
+    selected_date_str = request.GET.get('date', today.strftime('%Y-%m-%d'))
+    try:
+        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        selected_date = today
+
+    date_tabs = []
+    for i in range(5):
+        d = today + timedelta(days=i)
+        date_tabs.append({
+            'date_str': d.strftime('%Y-%m-%d'),
+            'day_name': 'TODAY' if i == 0 else d.strftime('%a').upper(),
+            'date_num': d.strftime('%d'),
+            'month_name': d.strftime('%b').upper(),
+            'is_selected': d == selected_date
+        })
 
     if request.user.is_authenticated:
         MovieView.objects.create(user=request.user, movie=movie)
@@ -159,13 +211,29 @@ def theater_list(request, movie_id):
             request.session.create()
         MovieView.objects.create(session_key=request.session.session_key, movie=movie)
 
-    return render(request, 'movies/theater_list.html', {'movie': movie, 'theaters': theaters})
+    context = {
+        'movie': movie,
+        'theaters': theaters,
+        'date_tabs': date_tabs,
+        'selected_date': selected_date_str,
+        'user_city': user_city,
+        'city_choices': Theater.CITY_CHOICES,
+    }
+    return render(request, 'movies/theater_list.html', context)
 
 
 @login_required(login_url='/login/')
 def book_seats(request, theater_id):
     theaters = get_object_or_404(Theater, id=theater_id)
     seats    = Seat.objects.filter(theater=theaters)
+
+    selected_date_str = request.GET.get('date') or request.POST.get('show_date') or timezone.now().strftime('%Y-%m-%d')
+    try:
+        show_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        show_date = theaters.time.date()
+
+    show_time_str = theaters.time.strftime('%I:%M %p')
 
     if request.method == 'POST':
         selected_seats = request.POST.getlist('seats')
@@ -175,34 +243,63 @@ def book_seats(request, theater_id):
             return render(request, 'movies/seat_selection.html', {
                 'theaters': theaters,
                 'seats': seats,
-                'error': 'Please select at least one seat.',
+                'show_date': show_date,
+                'show_time': show_time_str,
+                'error': 'Please select at least one seat before booking.',
             })
 
+        created_booking_ids = []
         for seat_id in selected_seats:
             seat = get_object_or_404(Seat, id=seat_id, theater=theaters)
             if seat.is_booked:
                 error_seats.append(seat.seat_number)
                 continue
             try:
-                Booking.objects.create(
+                booking = Booking.objects.create(
                     user=request.user,
                     seat=seat,
                     movie=theaters.movie,
                     theater=theaters,
+                    show_date=show_date,
+                    show_time=show_time_str,
                 )
                 seat.is_booked = True
                 seat.save()
+                created_booking_ids.append(booking.id)
+
             except IntegrityError:
                 error_seats.append(seat.seat_number)
 
+        if created_booking_ids:
+            async_email_dispatch(created_booking_ids)
+
         if error_seats:
-            error_message = f"Already booked: {', '.join(error_seats)}"
+            error_message = f"The following seats are already booked: {', '.join(error_seats)}"
             return render(request, 'movies/seat_selection.html', {
                 'theaters': theaters,
                 'seats': seats,
+                'show_date': show_date,
+                'show_time': show_time_str,
                 'error': error_message,
             })
 
         return redirect('profile')
 
-    return render(request, 'movies/seat_selection.html', {'theaters': theaters, 'seats': seats})
+    return render(request, 'movies/seat_selection.html', {
+        'theaters': theaters,
+        'seats': seats,
+        'show_date': show_date,
+        'show_time': show_time_str,
+    })
+
+
+@login_required(login_url='/login/')
+def download_ticket(request, booking_id):
+    booking = get_object_or_404(Booking, id=booking_id)
+    if booking.user != request.user and not request.user.is_staff:
+        return redirect('profile')
+
+    pdf_bytes = generate_ticket_pdf(booking)
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Ticket_{booking.booking_id}.pdf"'
+    return response

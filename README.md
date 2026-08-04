@@ -14,8 +14,10 @@ A full-featured movie ticket booking application built with Django, PostgreSQL (
 
 | Layer      | Technology                              |
 |------------|-----------------------------------------|
-| Backend    | Django 3.2, Python 3.x                  |
+| Backend    | Django 3.2, Python 3.x, Celery          |
 | Database   | PostgreSQL (Render) via dj-database-url |
+| Task Queue | Celery + Redis (background email delivery) |
+| PDF & QR   | ReportLab, qrcode                       |
 | Frontend   | Bootstrap 4, Vanilla CSS, Vanilla JS    |
 | Storage    | Local media (development)               |
 | Deployment | Vercel (serverless Python runtime)      |
@@ -34,6 +36,9 @@ python manage.py migrate
 
 python manage.py createsuperuser
 
+# Start Celery worker (optional for local background processing)
+celery -A bookmyseat worker --loglevel=info
+
 python manage.py runserver
 ```
 
@@ -45,10 +50,13 @@ Visit `http://127.0.0.1:8000/`.
 
 ```
 djnago-bookmyshow-clone/
-├── bookmyseat/          # Project config (settings, root URLs)
+├── bookmyseat/          # Project config (settings, root URLs, celery app)
+│   ├── celery.py        # Celery task queue configuration
 ├── movies/              # Core booking app
 │   ├── models.py        # Movie, Theater, Seat, Booking, MovieView
-│   ├── views.py         # movie_list, theater_list, book_seats
+│   ├── views.py         # movie_list, theater_list, book_seats, download_ticket
+│   ├── pdf.py           # ReportLab PDF ticket generator with embedded QR code
+│   ├── tasks.py         # Celery task for async ticket email confirmation
 │   ├── utils.py         # Recommendation engine
 │   ├── urls.py          # /movies/ routes
 │   └── migrations/
@@ -133,7 +141,26 @@ Every visit to a theater listing page (`/movies/<id>/theaters`) creates a `Movie
 
 ---
 
-### New Database Fields
+## Task 2 — Automated Ticket Generation and Email Confirmation
+
+### PDF Ticket & Verification QR Code
+- **PDF Ticket Generator (`movies/pdf.py`)**: Built using ReportLab (`SimpleDocTemplate`, `TableStyle`, `ParagraphStyle`) with custom brand styling (#1E3A8A blue accent).
+- **Dynamic QR Code**: Generated on the fly using `qrcode` library into an in-memory buffer and embedded into the PDF. Contains full verification data: Booking ID, Movie Name, Theater, Screen, Show Timing, Seat Number, Payment Ref, and Verified status.
+- **Included Details**: Movie name, genre, language, rating, theater name, city, screen number, show timing, seat number, booking date, ticket price, unique booking ID, and payment reference.
+
+### Asynchronous Email Confirmation with Celery
+- **Celery Task (`movies/tasks.py`)**: `@shared_task(bind=True, max_retries=3, default_retry_delay=5, autoretry_for=(Exception,), retry_backoff=True)`.
+- **Non-Blocking Dispatch**: Upon successful seat reservation in `book_seats`, `send_ticket_email_task.delay(booking.id)` is invoked. The booking response returns immediately without blocking for SMTP transmission.
+- **Automatic Retry Policy**: Retries failed email deliveries automatically up to 3 times with exponential backoff.
+- **Graceful Fallback**: If Celery broker/Redis is offline during local evaluation, a non-blocking daemon thread executes the task as a fallback, ensuring the user flow is never disrupted.
+
+### Ticket Download Feature
+- **Download Endpoint (`/movies/booking/<id>/ticket/`)**: `@login_required` view `download_ticket` streams the PDF as an attachment (`Content-Disposition: attachment; filename="Ticket_BMS-XXXXXX.pdf"`).
+- **Booking History (Profile Page)**: Each card in "Your Bookings" displays the Booking ID badge, Screen, Payment Reference, and a dedicated **"Download Ticket (PDF)"** button.
+
+---
+
+### Database Field Updates (Task 1 & Task 2)
 
 **Movie**
 
@@ -146,34 +173,17 @@ Every visit to a theater listing page (`/movies/<id>/theaters`) creates a `Movie
 
 **Theater**
 
-| Field  | Type      | Default  |
-|--------|-----------|----------|
-| `city` | CharField | `mumbai` |
+| Field    | Type      | Default    |
+|----------|-----------|------------|
+| `city`   | CharField | `mumbai`   |
+| `screen` | CharField | `Screen 1` |
 
-**MovieView (new)**
+**Booking**
 
-| Field         | Type                   |
-|---------------|------------------------|
-| `user`        | FK to User (nullable)  |
-| `movie`       | FK to Movie            |
-| `session_key` | CharField (nullable)   |
-| `viewed_at`   | DateTimeField (auto)   |
-
----
-
-### ORM Optimisations
-
-- `distinct()` is applied only when a filter joins through `theaters` (city, theater, show timing) to prevent duplicate movie rows.
-- `Count('booking', distinct=True)` prevents inflated counts when `distinct()` is also active.
-- `get_elided_page_range` handles large page ranges without rendering all page numbers.
-- Recommendation sub-queries operate on pre-fetched ID lists, avoiding N+1 patterns.
-
----
-
-## Responsive Design
-
-- Filter sidebar collapses to a full-width toggle button on screens narrower than 992 px.
-- Movie grid: 3 columns (desktop) → 2 columns (tablet) → 1 column (mobile).
+| Field               | Type      | Notes                                  |
+|---------------------|-----------|----------------------------------------|
+| `booking_id`        | CharField | Unique, auto-generated e.g. `BMS-8F92A1B3` |
+| `payment_reference` | CharField | Auto-generated e.g. `PAY-7C2D1E4F9A0B` |
 
 ---
 
@@ -190,11 +200,14 @@ Movies (/movies/)
 
 Movie Theaters (/movies/<id>/theaters)      [records MovieView]
   └── Seat Selection (/movies/theater/<id>/seats/book/)  [login required]
-        └── Profile (/profile/)             [shows booking history]
+        ├── Triggers non-blocking Celery email task (with retry policy)
+        └── Profile (/profile/)
+              ├── View Bookings (Booking ID, Screen, Payment Ref)
+              └── "Download Ticket (PDF)" button → Ticket_BMS-XXXXXX.pdf
 ```
 
 ---
 
 ## Admin Panel
 
-Visit `/admin/` to manage Movies (genre, language, price, release date, poster), Theaters (city, showtime), Seats, Bookings, and MovieViews.
+Visit `/admin/` to manage Movies (genre, language, price, release date, poster), Theaters (city, screen, showtime), Seats, Bookings (booking ID, payment ref), and MovieViews.
