@@ -99,14 +99,21 @@ WSGI_APPLICATION = 'bookmyseat.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# Session Engine: Use signed_cookies for Vercel serverless deployment to prevent read-only SQLite errors
+if os.environ.get('VERCEL') or 'vercel' in os.environ.get('VERCEL_URL', '').lower() or not os.environ.get('DATABASE_URL'):
+    SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-# Production PostgreSQL — uncomment when deploying to Vercel/Render
-# DATABASES['default'] = dj_database_url.parse('postgresql://django_bookmyshow_user:uF7eu2GnnDbqvUgYswCYpIS5TKTtsAUS@dpg-cshi84o8fa8c739dsme0-a.oregon-postgres.render.com/django_bookmyshow')
+
+if os.environ.get('DATABASE_URL'):
+    db_from_env = dj_database_url.config(conn_max_age=600)
+    if db_from_env:
+        DATABASES['default'].update(db_from_env)
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
