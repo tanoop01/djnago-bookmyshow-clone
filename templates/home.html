@@ -1,405 +1,202 @@
-{% extends "users/basic.html" %} {% block content %}
+{% extends "users/basic.html" %}
+{% block title %}BookMySeat - Book Movie Tickets, Live Events, Plays, Sports & Concerts{% endblock %}
+
+{% block content %}
 <style>
     body {
-      font-family: "Arial", sans-serif;
-      background-color: #f8f9fa;
+      font-family: 'Poppins', sans-serif;
+      background-color: #f8fafc;
     }
     .section-title {
-      font-size: 24px;
-      font-weight: bold;
-      margin: 30px 0 20px;
+      font-size: 22px;
+      font-weight: 700;
+      margin: 35px 0 20px;
       padding-bottom: 10px;
-      border-bottom: 2px solid #007bff;
-      color: #333;
+      border-bottom: 2px solid #2563eb;
+      color: #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .card {
       transition: transform 0.3s, box-shadow 0.3s;
       margin-bottom: 20px;
       border: none;
-      border-radius: 8px;
+      border-radius: 14px;
       overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
     .card:hover {
       transform: translateY(-5px);
-      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
     }
     .card-img-top {
       object-fit: cover;
     }
-    .card-body {
-      background-color: #fff;
-      padding: 15px;
-    }
-    .card-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 5px;
-    }
-    .card-text {
-      font-size: 14px;
-      color: #666;
-    }
     .carousel-item img {
       object-fit: cover;
+      border-radius: 12px;
     }
-    .carousel-caption {
-      background: rgba(0, 0, 0, 0.5);
-      border-radius: 10px;
-      padding: 20px;
-    }
-    .btn-primary {
-      background-color: #007bff;
-      border-color: #007bff;
-    }
-    .btn-primary:hover {
-      background-color: #0056b3;
-      border-color: #0056b3;
-    }
-  </style>
+</style>
+
+<div class="container mt-4">
   
-  <div id="carouselExampleIndicators" class="carousel slide" data-ride="carousel">
+  <!-- Carousel Banner -->
+  <div id="homeCarousel" class="carousel slide shadow-sm mb-4" data-ride="carousel" style="border-radius:12px; overflow:hidden;">
     <ol class="carousel-indicators">
-      <li
-        data-target="#carouselExampleIndicators"
-        data-slide-to="0"
-        class="active"
-      ></li>
-      <li data-target="#carouselExampleIndicators" data-slide-to="1"></li>
-      <li data-target="#carouselExampleIndicators" data-slide-to="2"></li>
+      <li data-target="#homeCarousel" data-slide-to="0" class="active"></li>
+      <li data-target="#homeCarousel" data-slide-to="1"></li>
+      <li data-target="#homeCarousel" data-slide-to="2"></li>
     </ol>
     <div class="carousel-inner">
       <div class="carousel-item active">
-        <img
-          class="d-block w-100"
-          src="https://assets-in.bmscdn.com/promotions/cms/creatives/1728390794440_bandlanddesktop.jpg"
-          alt="First slide"
-          height="300"
-        />
+        <img class="d-block w-100" src="https://assets-in.bmscdn.com/promotions/cms/creatives/1728390794440_bandlanddesktop.jpg" alt="First slide" height="300"/>
       </div>
       <div class="carousel-item">
-        <img
-          class="d-block w-100"
-          src="https://assets-in.bmscdn.com/promotions/cms/creatives/1726036566435_playcardnewweb.jpg"
-          alt="Second slide"
-          height="300"
-        />
+        <img class="d-block w-100" src="https://assets-in.bmscdn.com/promotions/cms/creatives/1726036566435_playcardnewweb.jpg" alt="Second slide" height="300"/>
       </div>
       <div class="carousel-item">
-        <img
-          class="d-block w-100"
-          src="https://assets-in.bmscdn.com/promotions/cms/creatives/1729172081740_sorcar1240x300.jpg"
-          alt="Third slide"
-          height="300"
-        />
+        <img class="d-block w-100" src="https://assets-in.bmscdn.com/promotions/cms/creatives/1729172081740_sorcar1240x300.jpg" alt="Third slide" height="300"/>
       </div>
     </div>
-    <a
-      class="carousel-control-prev"
-      href="#carouselExampleIndicators"
-      role="button"
-      data-slide="prev"
-    >
+    <a class="carousel-control-prev" href="#homeCarousel" role="button" data-slide="prev">
       <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-      <span class="sr-only">Previous</span>
     </a>
-    <a
-      class="carousel-control-next"
-      href="#carouselExampleIndicators"
-      role="button"
-      data-slide="next"
-    >
+    <a class="carousel-control-next" href="#homeCarousel" role="button" data-slide="next">
       <span class="carousel-control-next-icon" aria-hidden="true"></span>
-      <span class="sr-only">Next</span>
     </a>
   </div>
-  
-  <div class="container mt-4">
-    {% if not user.is_authenticated %}
-    <div class="alert alert-info" role="alert">
-      <a href="{% url 'login' %}" class="alert-link">Login</a> or
-      <a href="{% url 'register' %}" class="alert-link">Register</a> to continue.
-    </div>
-    {% endif %}
-  
-    <div class="section-title">Recommended Movies</div>
-    <div class="row">
-      {% for movie in recommendations %}
-      <div class="col-md-3 col-sm-6">
-        <a href="{% url 'movie_detail' movie.id %}" class="text-decoration-none">
-          <div class="card h-100">
-            <img src="{{ movie.image.url }}" class="card-img-top" alt="{{ movie.name }}" height="300"/>
-            <div class="card-body d-flex flex-column justify-content-between">
-              <h5 class="card-title text-center">{{ movie.name }}</h5>
-              <p class="card-text text-center text-muted" style="font-size:0.85rem;">
-                ★ {{ movie.rating }} &nbsp;|&nbsp; {{ movie.get_genre_display }}
-              </p>
-            </div>
-          </div>
-        </a>
-      </div>
-      {% empty %}
-      {% for movie in movies|slice:":4" %}
-      <div class="col-md-3 col-sm-6">
-        <a href="{% url 'movie_detail' movie.id %}" class="text-decoration-none">
-          <div class="card h-100">
-            <img src="{{ movie.image.url }}" class="card-img-top" alt="{{ movie.name }}" height="300"/>
-            <div class="card-body d-flex flex-column justify-content-between">
-              <h5 class="card-title text-center">{{ movie.name }}</h5>
-              <p class="card-text text-center">{{ movie.description }}</p>
-            </div>
-          </div>
-        </a>
-      </div>
-      {% endfor %}
-      {% endfor %}
-    </div>
-  
-    <div class="section-title">The Best of Live Events</div>
-    <div class="row">
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/wQXDIlqv4XoxGtNEO9XkSKBZYe9IuDePUWEcd0WwqcNzY5nTA.jpg"
-            class="card-img-top"
-            alt="Event 1"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Event 1</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/t52p8goZiO6QDBfid8wRyReanID18f5AxbszVhfPgESGklfcC.jpg"
-            class="card-img-top"
-            alt="Event 2"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Event 2</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/lAqCOht0TCaeSSLzw2ZGlPmDwvIEI3RtqajPoTYQN0ZOs8zJA.jpg"
-            class="card-img-top"
-            alt="Event 3"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Event 3</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/EyIkuIxpLaLyHBDEuu5hezeydhw0mOSjKWX71bUiuTBiY5nTA.jpg"
-            class="card-img-top"
-            alt="Event 4"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Event 4</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/3QTKm2zD4e1OR6tqfvQrePQ9gJF0K8ecA4loyO4cJShYilfcC.jpg"
-            class="card-img-top"
-            alt="Event 5"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Event 5</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/g1fZzG6zyC1oe0HCfeQyRcjQ76fODp2HfaewYUqYpex1ZY5nTA.jpg"
-            class="card-img-top"
-            alt="Event 6"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Event 6</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-  
-    <div class="section-title">Premiere</div>
-    <div class="row">
-      <div class="col-md-3 col-sm-6">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/FJ64xM1AcD6FHJgA4oa0cGJSW3VudRGcPJEJxZG7eUNjs8zJA.jpg"
-            class="card-img-top"
-            alt="Premiere 1"
-            height="300"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Premiere 1</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/2u07aGlpRdZ2P57Q7MmUcimgjPcxfzjp0iwmTHsAFxGYs8zJA.jpg"
-            class="card-img-top"
-            alt="Premiere 2"
-            height="300"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Premiere 2</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/Eej0GoGFir1bLKOhfwpnUtyhbKe9I1OJUvnBVe1IObpPilfcC.jpg"
-            class="card-img-top"
-            alt="Premiere 3"
-            height="300"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Premiere 3</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/HKg2EfFn2vXCFShRqFsKrlmxZk7Oy6jr4fqQ4utln0eiyyPnA.jpg"
-            class="card-img-top"
-            alt="Premiere 4"
-            height="300"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Premiere 4</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-  
-    <div class="section-title">Your Music Studio</div>
-    <div class="row">
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/Zxtj3kZfruT2C6wMYczKgyM03Ze2ymna5Pb3JCYppPtDZ5nTA.jpg"
-            class="card-img-top"
-            alt="Music 1"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Music 1</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/QLgGQKkllUJYJx57RJFjsciWnbG6MOb86lxqu7ijGDpLWezJA.jpg"
-            class="card-img-top"
-            alt="Music 2"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Music 2</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/xhrRnZeebRlinUxh914TpWK6sz42j8Wb2yHbK7DVTHP5Y5nTA.jpg"
-            class="card-img-top"
-            alt="Music 3"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Music 3</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/Bcmw5fvYWMW9UC4Y27iH8pB9vgFcIcN1Wx3jeHy7nvM8Y5nTA.jpg"
-            class="card-img-top"
-            alt="Music 4"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Music 4</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/uhbJueHHYVSiACSIZtetP8XiaCue0OmBZ24Cglkz4XjbxyPnA.jpg"
-            class="card-img-top"
-            alt="Music 5"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Music 5</h5>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-2 col-sm-4">
-        <div class="card">
-          <img
-            src="https://storage.googleapis.com/a1aa/image/1nzFNOrM8ErwFtx8e2JxDvB5fCje3g286SyfRnBR5JB2jlfcC.jpg"
-            class="card-img-top"
-            alt="Music 6"
-            height="200"
-          />
-          <div class="card-body">
-            <h5 class="card-title">Music 6</h5>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-  <script>
-    $(document).ready(function () {
-      $(".card").hover(
-        function () {
-          $(this).addClass("shadow-lg").css("cursor", "pointer");
-        },
-        function () {
-          $(this).removeClass("shadow-lg");
-        }
-      );
-    });
-  </script>
 
-<!-- <h1>Movies</h1>
-<ul>
-    {% for movie in movies%}
-    <li>
-        <img src="{{movie.image.url}}" alt="image" >
-        <strong>{{movie.name}}</strong>{{movie.rating}}
-        <p>Cast:{{movie.cast}}</p>
-        <a href="{% url 'theater_list' movie.id %}">View Theaters</a>
-    </li>
+  {% if not user.is_authenticated %}
+    <div class="alert alert-info shadow-sm d-flex justify-content-between align-items-center" style="border-radius:12px;">
+      <div>
+        <i class="fas fa-info-circle mr-2"></i> Welcome to BookMySeat! <a href="{% url 'login' %}" class="alert-link font-weight-bold">Log in</a> or <a href="{% url 'register' %}" class="alert-link font-weight-bold">Register</a> to unlock ticket bookings and verified reviews.
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Recommended Movies -->
+  <div class="section-title">
+    <span><i class="fas fa-film text-primary mr-2"></i> Recommended Movies</span>
+    <a href="{% url 'movie_list' %}" class="btn btn-sm btn-outline-primary font-weight-bold" style="border-radius:20px;">See All Movies &rarr;</a>
+  </div>
+  <div class="row">
+    {% for movie in recommendations %}
+      <div class="col-md-3 col-sm-6 mb-4">
+        <a href="{% url 'movie_detail' movie.id %}" class="text-decoration-none text-dark">
+          <div class="card h-100">
+            <img src="{{ movie.image.url }}" class="card-img-top" alt="{{ movie.name }}" height="320"/>
+            <div class="card-body p-3 d-flex flex-column justify-content-between">
+              <div>
+                <h5 class="card-title font-weight-bold text-dark text-truncate mb-1">{{ movie.name }}</h5>
+                <p class="card-text text-muted mb-0" style="font-size:0.85rem;">
+                  ★ {{ movie.rating }} &nbsp;|&nbsp; {{ movie.get_genre_display }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    {% empty %}
+      {% for movie in movies|slice:":4" %}
+        <div class="col-md-3 col-sm-6 mb-4">
+          <a href="{% url 'movie_detail' movie.id %}" class="text-decoration-none text-dark">
+            <div class="card h-100">
+              <img src="{{ movie.image.url }}" class="card-img-top" alt="{{ movie.name }}" height="320"/>
+              <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div>
+                  <h5 class="card-title font-weight-bold text-dark text-truncate mb-1">{{ movie.name }}</h5>
+                  <p class="card-text text-muted mb-0" style="font-size:0.85rem;">
+                    ★ {{ movie.rating }} &nbsp;|&nbsp; {{ movie.get_genre_display }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+      {% endfor %}
     {% endfor %}
-</ul> -->
+  </div>
+
+  <!-- Live Events -->
+  <div class="section-title">
+    <span><i class="fas fa-calendar-star text-warning mr-2"></i> The Best of Live Events</span>
+    <a href="{% url 'event_list' %}?category=events" class="btn btn-sm btn-outline-warning font-weight-bold text-dark" style="border-radius:20px;">See All Events &rarr;</a>
+  </div>
+  <div class="row">
+    {% for evt in live_events %}
+      <div class="col-md-4 col-sm-6 mb-4">
+        <a href="{% url 'event_detail' evt.id %}" class="text-decoration-none text-dark">
+          <div class="card h-100">
+            <img src="{{ evt.image_url }}" class="card-img-top" alt="{{ evt.name }}" height="220"/>
+            <div class="card-body p-3">
+              <span class="badge badge-warning mb-2 font-weight-bold">★ {{ evt.rating }}</span>
+              <h6 class="card-title font-weight-bold text-dark text-truncate mb-1">{{ evt.name }}</h6>
+              <small class="text-muted d-block text-truncate"><i class="fas fa-map-marker-alt text-danger mr-1"></i> {{ evt.venue_name }}</small>
+              <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                <span class="font-weight-bold text-success" style="font-size:0.9rem;">₹{{ evt.price }}</span>
+                <span class="btn btn-sm btn-outline-primary font-weight-bold" style="border-radius:15px;">Book Passes</span>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    {% empty %}
+      <div class="col-12 py-3 text-muted text-center">No live events listed yet.</div>
+    {% endfor %}
+  </div>
+
+  <!-- Plays & Theater -->
+  <div class="section-title">
+    <span><i class="fas fa-theater-masks text-danger mr-2"></i> Plays & Theater</span>
+    <a href="{% url 'event_list' %}?category=plays" class="btn btn-sm btn-outline-danger font-weight-bold" style="border-radius:20px;">See All Plays &rarr;</a>
+  </div>
+  <div class="row">
+    {% for play in plays %}
+      <div class="col-md-3 col-sm-6 mb-4">
+        <a href="{% url 'event_detail' play.id %}" class="text-decoration-none text-dark">
+          <div class="card h-100">
+            <img src="{{ play.image_url }}" class="card-img-top" alt="{{ play.name }}" height="240"/>
+            <div class="card-body p-3">
+              <h6 class="card-title font-weight-bold text-dark text-truncate mb-1">{{ play.name }}</h6>
+              <small class="text-muted d-block mb-2">{{ play.get_city_display }} &bull; {{ play.language }}</small>
+              <span class="font-weight-bold text-success">₹{{ play.price }}</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    {% empty %}
+      <div class="col-12 py-3 text-muted text-center">No plays listed yet.</div>
+    {% endfor %}
+  </div>
+
+  <!-- Music & Concerts -->
+  <div class="section-title">
+    <span><i class="fas fa-music text-info mr-2"></i> Music Studio & Concerts</span>
+    <a href="{% url 'event_list' %}?category=music" class="btn btn-sm btn-outline-info font-weight-bold" style="border-radius:20px;">See All Concerts &rarr;</a>
+  </div>
+  <div class="row">
+    {% for music in music_concerts %}
+      <div class="col-md-4 col-sm-6 mb-4">
+        <a href="{% url 'event_detail' music.id %}" class="text-decoration-none text-dark">
+          <div class="card h-100">
+            <img src="{{ music.image_url }}" class="card-img-top" alt="{{ music.name }}" height="220"/>
+            <div class="card-body p-3">
+              <span class="badge badge-info mb-2 font-weight-bold">★ {{ music.rating }}</span>
+              <h6 class="card-title font-weight-bold text-dark text-truncate mb-1">{{ music.name }}</h6>
+              <small class="text-muted d-block text-truncate"><i class="fas fa-map-marker-alt text-danger mr-1"></i> {{ music.venue_name }}</small>
+              <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                <span class="font-weight-bold text-success" style="font-size:0.9rem;">₹{{ music.price }}</span>
+                <span class="btn btn-sm btn-outline-primary font-weight-bold" style="border-radius:15px;">Book Tickets</span>
+              </div>
+            </div>
+          </div>
+        </a>
+      </div>
+    {% empty %}
+      <div class="col-12 py-3 text-muted text-center">No concerts listed yet.</div>
+    {% endfor %}
+  </div>
+
+</div>
 {% endblock %}

@@ -1,0 +1,265 @@
+{% extends "users/basic.html" %}
+{% block title %}Checkout & Payment | BookMySeat{% endblock %}
+
+{% block content %}
+<style>
+  .checkout-container {
+    max-width: 780px;
+    margin: 2rem auto;
+  }
+  .summary-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+  }
+  .summary-header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    color: #fff;
+    padding: 1.5rem 2rem;
+  }
+  .timer-banner {
+    background: #fff7ed;
+    border: 1px solid #ffedd5;
+    color: #c2410c;
+    border-radius: 12px;
+    padding: 0.85rem 1.25rem;
+    font-weight: 700;
+  }
+  .timer-clock {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #ea580c;
+    font-family: monospace;
+  }
+</style>
+
+<div class="container checkout-container">
+  <div class="summary-card">
+    <div class="summary-header d-flex justify-content-between align-items-center">
+      <div>
+        <h4 class="font-weight-bold mb-0"><i class="fas fa-shield-alt mr-2"></i> Secure Payment Checkout</h4>
+        <small class="text-white-50">Powered by Razorpay Payments</small>
+      </div>
+      <span class="badge badge-light text-primary font-weight-bold px-3 py-2">
+        <i class="fas fa-lock mr-1"></i> Temporary Seat Reservation
+      </span>
+    </div>
+
+    <div class="card-body p-4">
+
+      <!-- 2-Minute Reservation Countdown Timer Banner -->
+      <div class="timer-banner d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <i class="fas fa-stopwatch fa-lg mr-2 text-warning"></i>
+          <span>Seats Temporarily Reserved! Complete payment before timer expires:</span>
+        </div>
+        <div class="timer-clock ml-3" id="reservation-timer">
+          02:00
+        </div>
+      </div>
+
+      <div class="row align-items-center mb-4">
+        <div class="col-md-3 text-center mb-3 mb-md-0">
+          <img src="{{ primary_booking.movie.image.url }}" alt="{{ primary_booking.movie.name }}" class="rounded shadow-sm" style="max-height:150px; width:100%; object-fit:cover;">
+        </div>
+        <div class="col-md-9">
+          <div class="d-flex justify-content-between align-items-start">
+            <h4 class="font-weight-bold text-dark mb-1">{{ primary_booking.movie.name }}</h4>
+            <a href="{% url 'cancel_or_modify_reservation' payment.id %}" class="btn btn-outline-secondary btn-sm font-weight-bold" style="border-radius:20px;">
+              <i class="fas fa-edit mr-1"></i> Modify Seats
+            </a>
+          </div>
+          <p class="text-muted mb-2" style="font-size:0.9rem;">
+            <i class="fas fa-film text-primary mr-1"></i> {{ primary_booking.theater.name }} ({{ primary_booking.theater.screen }}) &bull; {{ primary_booking.theater.get_city_display }}<br>
+            <i class="far fa-clock text-primary mr-1"></i> {{ primary_booking.show_date|date:"D, M d, Y" }} at {{ primary_booking.show_time }}<br>
+            <i class="fas fa-chair text-primary mr-1"></i> Reserved Seats: <strong class="text-dark">{{ seat_numbers }}</strong> ({{ num_seats }} Ticket{% if num_seats > 1 %}s{% endif %})
+          </p>
+        </div>
+      </div>
+
+      <hr class="my-3">
+
+      <!-- Order & Pricing Summary Table -->
+      <div class="table-responsive mb-4">
+        <table class="table table-borderless bg-light rounded mb-0">
+          <tbody>
+            <tr>
+              <td class="text-muted">Order ID:</td>
+              <td class="text-right font-weight-bold text-dark"><code>{{ payment.razorpay_order_id }}</code></td>
+            </tr>
+            <tr>
+              <td class="text-muted">Ticket Price ({{ num_seats }} x ₹{{ primary_booking.movie.price }}):</td>
+              <td class="text-right font-weight-bold">₹{{ payment.amount }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted">Convenience Fee & Taxes:</td>
+              <td class="text-right text-success font-weight-bold">FREE</td>
+            </tr>
+            <tr class="border-top">
+              <td class="h5 font-weight-bold text-dark">Total Amount Payable:</td>
+              <td class="h5 font-weight-bold text-primary text-right">₹{{ payment.amount }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Razorpay Payment Trigger Card -->
+      <div class="card border-primary mb-3 bg-white" style="border-radius:12px;">
+        <div class="card-body text-center py-4">
+          
+          <!-- Official Razorpay Standard Button -->
+          <button id="rzp-button1" class="btn btn-success btn-lg px-5 font-weight-bold mb-3 shadow" style="border-radius:30px;">
+            <i class="fas fa-lock mr-2"></i> Pay ₹{{ payment.amount }} via Razorpay
+          </button>
+
+          <div class="my-2 text-muted" style="font-size:0.8rem;">
+            Click above to launch the official Razorpay payment modal with UPI, Cards, Netbanking & Wallets.
+          </div>
+
+          <!-- Interactive Test Controls -->
+          <div class="d-flex justify-content-center flex-wrap gap-2 mt-3 pt-3 border-top">
+            <form id="simulate-success-form" method="POST" action="{% url 'payment_verify' %}" class="d-inline mr-2 mb-2">
+              {% csrf_token %}
+              <input type="hidden" name="payment_db_id" value="{{ payment.id }}">
+              <input type="hidden" name="razorpay_order_id" value="{{ payment.razorpay_order_id }}">
+              <input type="hidden" name="razorpay_payment_id" value="pay_sim_{{ payment.id }}">
+              <input type="hidden" name="razorpay_signature" value="sig_sim_{{ payment.id }}">
+              <input type="hidden" name="action" value="success">
+              <button type="submit" class="btn btn-outline-success btn-sm font-weight-bold" style="border-radius:20px;">
+                <i class="fas fa-check-circle mr-1"></i> Fast Test Success
+              </button>
+            </form>
+
+            <form method="POST" action="{% url 'payment_verify' %}" class="d-inline mr-2 mb-2">
+              {% csrf_token %}
+              <input type="hidden" name="payment_db_id" value="{{ payment.id }}">
+              <input type="hidden" name="razorpay_order_id" value="{{ payment.razorpay_order_id }}">
+              <input type="hidden" name="action" value="failed">
+              <input type="hidden" name="failure_reason" value="Bank payment gateway timeout or card declined.">
+              <button type="submit" class="btn btn-outline-danger btn-sm font-weight-bold" style="border-radius:20px;">
+                <i class="fas fa-times-circle mr-1"></i> Fast Test Failure
+              </button>
+            </form>
+
+            <a href="{% url 'cancel_or_modify_reservation' payment.id %}" class="btn btn-outline-secondary btn-sm font-weight-bold mb-2" style="border-radius:20px;">
+              <i class="fas fa-edit mr-1"></i> Modify Seats / Cancel
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Form to submit when 2-minute timer expires -->
+<form id="expire-timer-form" method="POST" action="{% url 'payment_verify' %}" style="display:none;">
+  {% csrf_token %}
+  <input type="hidden" name="payment_db_id" value="{{ payment.id }}">
+  <input type="hidden" name="razorpay_order_id" value="{{ payment.razorpay_order_id }}">
+  <input type="hidden" name="action" value="failed">
+  <input type="hidden" name="failure_reason" value="Your 2-minute seat reservation timer expired. Seats have been automatically released.">
+</form>
+
+<!-- Razorpay Standard Checkout SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  // 2-Minute Countdown Timer Script
+  var remainingSeconds = parseInt("{{ remaining_seconds|default:120 }}");
+  var timerDisplay = document.getElementById('reservation-timer');
+
+  function updateTimerDisplay() {
+    var mins = Math.floor(remainingSeconds / 60);
+    var secs = remainingSeconds % 60;
+    timerDisplay.innerText = (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+
+    if (remainingSeconds <= 0) {
+      clearInterval(timerInterval);
+      document.getElementById('expire-timer-form').submit();
+    } else {
+      remainingSeconds--;
+    }
+  }
+
+  updateTimerDisplay();
+  var timerInterval = setInterval(updateTimerDisplay, 1000);
+
+  // Razorpay Checkout Handler
+  var razorpayKey = "{{ razorpay_key_id }}";
+  var orderId = "{{ payment.razorpay_order_id }}";
+
+  var options = {
+    "key": razorpayKey,
+    "amount": "{{ amount_in_paise }}",
+    "currency": "INR",
+    "name": "BookMySeat Ticket Booking",
+    "description": "{{ primary_booking.movie.name }} - {{ num_seats }} Ticket(s)",
+    "order_id": orderId,
+    "handler": function (response){
+      var form = document.createElement("form");
+      form.setAttribute("method", "post");
+      form.setAttribute("action", "{% url 'payment_verify' %}");
+
+      var csrfInput = document.createElement("input");
+      csrfInput.setAttribute("type", "hidden");
+      csrfInput.setAttribute("name", "csrfmiddlewaretoken");
+      csrfInput.setAttribute("value", "{{ csrf_token }}");
+      form.appendChild(csrfInput);
+
+      var dbIdInput = document.createElement("input");
+      dbIdInput.setAttribute("type", "hidden");
+      dbIdInput.setAttribute("name", "payment_db_id");
+      dbIdInput.setAttribute("value", "{{ payment.id }}");
+      form.appendChild(dbIdInput);
+
+      var payIdInput = document.createElement("input");
+      payIdInput.setAttribute("type", "hidden");
+      payIdInput.setAttribute("name", "razorpay_payment_id");
+      payIdInput.setAttribute("value", response.razorpay_payment_id);
+      form.appendChild(payIdInput);
+
+      var ordIdInput = document.createElement("input");
+      ordIdInput.setAttribute("type", "hidden");
+      ordIdInput.setAttribute("name", "razorpay_order_id");
+      ordIdInput.setAttribute("value", response.razorpay_order_id);
+      form.appendChild(ordIdInput);
+
+      var sigInput = document.createElement("input");
+      sigInput.setAttribute("type", "hidden");
+      sigInput.setAttribute("name", "razorpay_signature");
+      sigInput.setAttribute("value", response.razorpay_signature);
+      form.appendChild(sigInput);
+
+      var actionInput = document.createElement("input");
+      actionInput.setAttribute("type", "hidden");
+      actionInput.setAttribute("name", "action");
+      actionInput.setAttribute("value", "success");
+      form.appendChild(actionInput);
+
+      document.body.appendChild(form);
+      form.submit();
+    },
+    "prefill": {
+      "name": "{{ request.user.username }}",
+      "email": "{{ request.user.email }}"
+    },
+    "theme": {
+      "color": "#1E3A8A"
+    }
+  };
+
+  document.getElementById('rzp-button1').onclick = function(e){
+    e.preventDefault();
+    try {
+      var rzp1 = new Razorpay(options);
+      rzp1.open();
+    } catch (err) {
+      console.log("Razorpay SDK Error:", err);
+      document.getElementById('simulate-success-form').submit();
+    }
+  };
+</script>
+{% endblock %}

@@ -3,52 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}BookMySeat{% endblock %}</title>
+    <title>{% block title %}BookMySeat - Movie Tickets & Event Passes{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
     <style>
       body {
-        font-family: 'Poppins', Arial, sans-serif;
-      }
-      .navbar {
-        background-color: #1a1a24 !important;
-        padding: 10px 20px;
+        font-family: "Poppins", sans-serif;
+        background-color: #f8fafc;
       }
       .navbar-brand {
+        font-size: 1.5rem;
         font-weight: 700;
-        font-size: 1.25rem;
-        color: #fff !important;
+        color: #ffffff !important;
       }
       .city-btn {
-        background: rgba(255,255,255,0.12);
-        color: #fff !important;
-        border: 1px solid rgba(255,255,255,0.25);
-        border-radius: 50px;
-        padding: 0.35rem 0.9rem;
-        font-size: 0.82rem;
+        background-color: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 20px;
+        padding: 0.35rem 0.95rem;
+        font-size: 0.85rem;
         font-weight: 600;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
       }
-      .city-btn:hover {
-        background: rgba(255,255,255,0.22);
-        color: #fff !important;
-        text-decoration: none;
+      .city-btn:hover, .city-btn:focus {
+        background-color: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+        box-shadow: none;
       }
-      .city-card {
-        border: 1.5px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 0.75rem;
-        text-align: center;
+      
+      /* Compact City Dropdown Styling */
+      .city-dropdown-menu {
+        width: 320px;
+        border-radius: 14px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+        padding: 0.8rem;
+        background: #ffffff;
+      }
+      .city-scroll-container {
+        max-height: 280px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+      .city-dropdown-item {
+        padding: 0.45rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 500;
+        color: #334155;
         cursor: pointer;
-        transition: all 0.2s;
-        background: #fff;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
       }
-      .city-card:hover {
-        border-color: #3b82f6;
-        background: #eff6ff;
-        transform: translateY(-2px);
+      .city-dropdown-item:hover {
+        background-color: #eff6ff;
+        color: #2563eb;
+        font-weight: 600;
       }
       .footer {
         background-color: #1a1a24;
@@ -65,23 +80,121 @@
     </style>
   </head>
   <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm">
       <div class="container">
         <a class="navbar-brand d-flex align-items-center" href="/">
           <i class="fas fa-ticket-alt text-primary mr-2" style="font-size:1.5rem;"></i>
           BookMySeat
         </a>
 
-        <div class="ml-3">
-          <button class="btn city-btn" data-toggle="modal" data-target="#cityModal">
+        <!-- Compact City Dropdown in Navbar -->
+        <div class="dropdown ml-3">
+          <button class="btn city-btn dropdown-toggle" type="button" id="cityDropdownBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
             <i class="fas fa-map-marker-alt text-danger mr-1"></i>
             {% if request.session.user_city %}
               {{ request.session.user_city|title }}
             {% else %}
               Select City
             {% endif %}
-            <i class="fas fa-chevron-down ml-1" style="font-size:0.75rem;"></i>
           </button>
+          
+          <div class="dropdown-menu city-dropdown-menu dropdown-menu-left shadow" aria-labelledby="cityDropdownBtn">
+            <!-- Search City Input -->
+            <div class="input-group input-group-sm mb-2">
+              <div class="input-group-prepend">
+                <span class="input-group-text bg-white border-right-0"><i class="fas fa-search text-muted"></i></span>
+              </div>
+              <input type="text" id="navbarCitySearch" class="form-control border-left-0" placeholder="Search city (e.g. Jalandhar)..." style="border-radius: 0 20px 20px 0;">
+            </div>
+
+            <!-- Auto Detect City Option -->
+            <button type="button" class="btn btn-primary btn-block btn-sm font-weight-bold py-2 mb-2" id="auto-detect-btn" onclick="autoDetectCity(event)" style="border-radius:20px;">
+              <i class="fas fa-crosshairs text-warning mr-1"></i> Auto Detect My City
+            </button>
+            
+            <div id="detection-status" class="alert alert-info py-1 px-2 mb-2 text-center d-none" style="font-size:0.78rem; border-radius:8px;"></div>
+
+            <div class="dropdown-divider my-2"></div>
+
+            <!-- Form to Submit Selected City -->
+            <form method="POST" action="{% url 'set_city' %}" id="citySelectForm">
+              {% csrf_token %}
+              <input type="hidden" name="city" id="selectedCityInput" value="">
+              
+              <div class="city-scroll-container">
+                <small class="text-muted font-weight-bold text-uppercase d-block px-2 mb-1" style="font-size:0.7rem;">Popular Metros</small>
+                <div class="city-dropdown-item nav-city-item" data-name="mumbai" onclick="submitCity('mumbai')">Mumbai</div>
+                <div class="city-dropdown-item nav-city-item" data-name="delhi" onclick="submitCity('delhi')">Delhi-NCR</div>
+                <div class="city-dropdown-item nav-city-item" data-name="bangalore bengaluru" onclick="submitCity('bangalore')">Bengaluru</div>
+                <div class="city-dropdown-item nav-city-item" data-name="chennai" onclick="submitCity('chennai')">Chennai</div>
+                <div class="city-dropdown-item nav-city-item" data-name="hyderabad" onclick="submitCity('hyderabad')">Hyderabad</div>
+                <div class="city-dropdown-item nav-city-item" data-name="pune" onclick="submitCity('pune')">Pune</div>
+                <div class="city-dropdown-item nav-city-item" data-name="kolkata" onclick="submitCity('kolkata')">Kolkata</div>
+                <div class="city-dropdown-item nav-city-item" data-name="ahmedabad" onclick="submitCity('ahmedabad')">Ahmedabad</div>
+
+                <div class="dropdown-divider my-2"></div>
+                <small class="text-muted font-weight-bold text-uppercase d-block px-2 mb-1" style="font-size:0.7rem;">All Cities (A - Z)</small>
+                
+                <div class="city-dropdown-item nav-city-item" data-name="jalandhar" onclick="submitCity('jalandhar')">Jalandhar</div>
+                <div class="city-dropdown-item nav-city-item" data-name="amritsar" onclick="submitCity('amritsar')">Amritsar</div>
+                <div class="city-dropdown-item nav-city-item" data-name="ludhiana" onclick="submitCity('ludhiana')">Ludhiana</div>
+                <div class="city-dropdown-item nav-city-item" data-name="chandigarh" onclick="submitCity('chandigarh')">Chandigarh</div>
+                <div class="city-dropdown-item nav-city-item" data-name="patiala" onclick="submitCity('patiala')">Patiala</div>
+                <div class="city-dropdown-item nav-city-item" data-name="bathinda" onclick="submitCity('bathinda')">Bathinda</div>
+                <div class="city-dropdown-item nav-city-item" data-name="agra" onclick="submitCity('agra')">Agra</div>
+                <div class="city-dropdown-item nav-city-item" data-name="allahabad prayagraj" onclick="submitCity('allahabad')">Allahabad / Prayagraj</div>
+                <div class="city-dropdown-item nav-city-item" data-name="aurangabad" onclick="submitCity('aurangabad')">Aurangabad</div>
+                <div class="city-dropdown-item nav-city-item" data-name="bareilly" onclick="submitCity('bareilly')">Bareilly</div>
+                <div class="city-dropdown-item nav-city-item" data-name="bhopal" onclick="submitCity('bhopal')">Bhopal</div>
+                <div class="city-dropdown-item nav-city-item" data-name="bhubaneswar" onclick="submitCity('bhubaneswar')">Bhubaneswar</div>
+                <div class="city-dropdown-item nav-city-item" data-name="coimbatore" onclick="submitCity('coimbatore')">Coimbatore</div>
+                <div class="city-dropdown-item nav-city-item" data-name="cuttack" onclick="submitCity('cuttack')">Cuttack</div>
+                <div class="city-dropdown-item nav-city-item" data-name="dehradun" onclick="submitCity('dehradun')">Dehradun</div>
+                <div class="city-dropdown-item nav-city-item" data-name="dhanbad" onclick="submitCity('dhanbad')">Dhanbad</div>
+                <div class="city-dropdown-item nav-city-item" data-name="faridabad" onclick="submitCity('faridabad')">Faridabad</div>
+                <div class="city-dropdown-item nav-city-item" data-name="ghaziabad" onclick="submitCity('ghaziabad')">Ghaziabad</div>
+                <div class="city-dropdown-item nav-city-item" data-name="goa" onclick="submitCity('goa')">Goa</div>
+                <div class="city-dropdown-item nav-city-item" data-name="gurgaon gurugram" onclick="submitCity('gurgaon')">Gurgaon / Gurugram</div>
+                <div class="city-dropdown-item nav-city-item" data-name="guwahati" onclick="submitCity('guwahati')">Guwahati</div>
+                <div class="city-dropdown-item nav-city-item" data-name="gwalior" onclick="submitCity('gwalior')">Gwalior</div>
+                <div class="city-dropdown-item nav-city-item" data-name="howrah" onclick="submitCity('howrah')">Howrah</div>
+                <div class="city-dropdown-item nav-city-item" data-name="indore" onclick="submitCity('indore')">Indore</div>
+                <div class="city-dropdown-item nav-city-item" data-name="jabalpur" onclick="submitCity('jabalpur')">Jabalpur</div>
+                <div class="city-dropdown-item nav-city-item" data-name="jaipur" onclick="submitCity('jaipur')">Jaipur</div>
+                <div class="city-dropdown-item nav-city-item" data-name="jammu" onclick="submitCity('jammu')">Jammu</div>
+                <div class="city-dropdown-item nav-city-item" data-name="jodhpur" onclick="submitCity('jodhpur')">Jodhpur</div>
+                <div class="city-dropdown-item nav-city-item" data-name="kanpur" onclick="submitCity('kanpur')">Kanpur</div>
+                <div class="city-dropdown-item nav-city-item" data-name="kochi cochin" onclick="submitCity('kochi')">Kochi / Cochin</div>
+                <div class="city-dropdown-item nav-city-item" data-name="kota" onclick="submitCity('kota')">Kota</div>
+                <div class="city-dropdown-item nav-city-item" data-name="lucknow" onclick="submitCity('lucknow')">Lucknow</div>
+                <div class="city-dropdown-item nav-city-item" data-name="ludhiana" onclick="submitCity('ludhiana')">Ludhiana</div>
+                <div class="city-dropdown-item nav-city-item" data-name="madurai" onclick="submitCity('madurai')">Madurai</div>
+                <div class="city-dropdown-item nav-city-item" data-name="mangalore" onclick="submitCity('mangalore')">Mangalore</div>
+                <div class="city-dropdown-item nav-city-item" data-name="meerut" onclick="submitCity('meerut')">Meerut</div>
+                <div class="city-dropdown-item nav-city-item" data-name="moradabad" onclick="submitCity('moradabad')">Moradabad</div>
+                <div class="city-dropdown-item nav-city-item" data-name="mysore" onclick="submitCity('mysore')">Mysore</div>
+                <div class="city-dropdown-item nav-city-item" data-name="nagpur" onclick="submitCity('nagpur')">Nagpur</div>
+                <div class="city-dropdown-item nav-city-item" data-name="nashik" onclick="submitCity('nashik')">Nashik</div>
+                <div class="city-dropdown-item nav-city-item" data-name="navi_mumbai" onclick="submitCity('navi_mumbai')">Navi Mumbai</div>
+                <div class="city-dropdown-item nav-city-item" data-name="noida" onclick="submitCity('noida')">Noida</div>
+                <div class="city-dropdown-item nav-city-item" data-name="patna" onclick="submitCity('patna')">Patna</div>
+                <div class="city-dropdown-item nav-city-item" data-name="pondicherry" onclick="submitCity('pondicherry')">Pondicherry</div>
+                <div class="city-dropdown-item nav-city-item" data-name="raipur" onclick="submitCity('raipur')">Raipur</div>
+                <div class="city-dropdown-item nav-city-item" data-name="rajkot" onclick="submitCity('rajkot')">Rajkot</div>
+                <div class="city-dropdown-item nav-city-item" data-name="ranchi" onclick="submitCity('ranchi')">Ranchi</div>
+                <div class="city-dropdown-item nav-city-item" data-name="shimla" onclick="submitCity('shimla')">Shimla</div>
+                <div class="city-dropdown-item nav-city-item" data-name="solapur" onclick="submitCity('solapur')">Solapur</div>
+                <div class="city-dropdown-item nav-city-item" data-name="srinagar" onclick="submitCity('srinagar')">Srinagar</div>
+                <div class="city-dropdown-item nav-city-item" data-name="surat" onclick="submitCity('surat')">Surat</div>
+                <div class="city-dropdown-item nav-city-item" data-name="thane" onclick="submitCity('thane')">Thane</div>
+                <div class="city-dropdown-item nav-city-item" data-name="trivandrum" onclick="submitCity('trivandrum')">Trivandrum</div>
+                <div class="city-dropdown-item nav-city-item" data-name="vadodara" onclick="submitCity('vadodara')">Vadodara</div>
+                <div class="city-dropdown-item nav-city-item" data-name="varanasi" onclick="submitCity('varanasi')">Varanasi</div>
+                <div class="city-dropdown-item nav-city-item" data-name="vijayawada" onclick="submitCity('vijayawada')">Vijayawada</div>
+                <div class="city-dropdown-item nav-city-item" data-name="visakhapatnam" onclick="submitCity('visakhapatnam')">Visakhapatnam</div>
+              </div>
+            </form>
+          </div>
         </div>
 
         <button
@@ -104,103 +217,49 @@
             <li class="nav-item">
               <a class="nav-link" href="{% url 'movie_list' %}">Movies</a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'event_list' %}?category=events">Events</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'event_list' %}?category=plays">Plays</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'event_list' %}?category=sports">Sports</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'event_list' %}?category=music">Concerts</a>
+            </li>
             {% if user.is_authenticated %}
+            {% if user.is_staff %}
+            <li class="nav-item">
+              <a class="nav-link font-weight-bold text-warning" href="{% url 'admin_dashboard' %}">
+                <i class="fas fa-chart-line mr-1"></i> Admin Analytics
+              </a>
+            </li>
+            {% endif %}
             <li class="nav-item">
               <a class="nav-link" href="{% url 'profile' %}">Profile</a>
             </li>
             <li class="nav-item">
               <form method="Post" action="{% url 'logout' %}" class="d-inline">
                 {% csrf_token %}
-                <button type="submit" class="nav-link btn btn-link" style="text-decoration:none;">
+                <button type="submit" class="nav-link btn btn-link text-white-50" style="text-decoration:none;">
                   Logout
                 </button>
               </form>
             </li>
             {% else %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'login' %}">Login</a>
+            <li class="nav-item ml-lg-2">
+              <a class="btn btn-outline-light btn-sm px-3 font-weight-bold" style="border-radius:20px;" href="{% url 'login' %}">Login</a>
             </li>
-            <li class="nav-item">
-              <a class="btn btn-primary btn-sm px-3 ml-2" href="{% url 'register' %}" style="border-radius:20px; font-weight:600;">Register</a>
+            <li class="nav-item ml-lg-2 mt-2 mt-lg-0">
+              <a class="btn btn-primary btn-sm px-3 font-weight-bold" style="border-radius:20px;" href="{% url 'register' %}">Register</a>
             </li>
             {% endif %}
           </ul>
         </div>
       </div>
     </nav>
-
-    <!-- City Selection Modal -->
-    <div class="modal fade" id="cityModal" tabindex="-1" role="dialog" aria-labelledby="cityModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-        <div class="modal-content" style="border-radius:16px; border:none; overflow:hidden;">
-          <div class="modal-header bg-dark text-white py-3">
-            <h5 class="modal-title font-weight-bold" id="cityModalLabel">
-              <i class="fas fa-city text-primary mr-2"></i> Select Your Preferred City
-            </h5>
-            <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body p-4" style="background:#f8fafc;">
-            <p class="text-muted text-center mb-4">Choose a city to explore available movies, theaters, and showtimes near you.</p>
-            <form method="POST" action="{% url 'set_city' %}" id="citySelectForm">
-              {% csrf_token %}
-              <input type="hidden" name="city" id="selectedCityInput" value="">
-              <div class="row">
-                <div class="col-6 col-md-3 mb-3">
-                  <div class="city-card" onclick="submitCity('mumbai')">
-                    <i class="fas fa-building fa-2x text-primary mb-2"></i>
-                    <div class="font-weight-bold text-dark">Mumbai</div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                  <div class="city-card" onclick="submitCity('delhi')">
-                    <i class="fas fa-monument fa-2x text-danger mb-2"></i>
-                    <div class="font-weight-bold text-dark">Delhi</div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                  <div class="city-card" onclick="submitCity('bangalore')">
-                    <i class="fas fa-laptop-code fa-2x text-success mb-2"></i>
-                    <div class="font-weight-bold text-dark">Bangalore</div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                  <div class="city-card" onclick="submitCity('chennai')">
-                    <i class="fas fa-archway fa-2x text-warning mb-2"></i>
-                    <div class="font-weight-bold text-dark">Chennai</div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                  <div class="city-card" onclick="submitCity('hyderabad')">
-                    <i class="fas fa-gopuram fa-2x text-info mb-2"></i>
-                    <div class="font-weight-bold text-dark">Hyderabad</div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                  <div class="city-card" onclick="submitCity('pune')">
-                    <i class="fas fa-university fa-2x text-purple mb-2" style="color:#8b5cf6;"></i>
-                    <div class="font-weight-bold text-dark">Pune</div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                  <div class="city-card" onclick="submitCity('kolkata')">
-                    <i class="fas fa-tram fa-2x text-secondary mb-2"></i>
-                    <div class="font-weight-bold text-dark">Kolkata</div>
-                  </div>
-                </div>
-                <div class="col-6 col-md-3 mb-3">
-                  <div class="city-card" onclick="submitCity('ahmedabad')">
-                    <i class="fas fa-landmark fa-2x text-dark mb-2"></i>
-                    <div class="font-weight-bold text-dark">Ahmedabad</div>
-                  </div>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div class="container-fluid p-0">{% block content %} {% endblock %}</div>
 
@@ -210,7 +269,7 @@
           <div class="col-md-4 mb-4 mb-md-0">
             <h5 class="text-white font-weight-bold mb-3">BookMySeat</h5>
             <p style="color:#9ca3af; font-size:0.9rem;">
-              Your premiere destination for booking movie tickets online. Real-time showtimes, instant QR tickets, and seamless movie discovery.
+              Your premier destination for booking movie tickets, live events, plays, sports matches, and music concerts online across India.
             </p>
           </div>
           <div class="col-md-4 mb-4 mb-md-0">
@@ -218,16 +277,15 @@
             <ul class="list-unstyled" style="font-size:0.9rem;">
               <li><a href="/">Home</a></li>
               <li><a href="{% url 'movie_list' %}">Explore Movies</a></li>
+              <li><a href="{% url 'event_list' %}">Live Events & Concerts</a></li>
               <li><a href="{% url 'profile' %}">Your Bookings</a></li>
             </ul>
           </div>
           <div class="col-md-4">
-            <h5 class="text-white font-weight-bold mb-3">Follow Us</h5>
-            <div class="social-icons" style="font-size:1.4rem;">
-              <a href="#" class="mr-3 text-white"><i class="fab fa-facebook"></i></a>
-              <a href="#" class="mr-3 text-white"><i class="fab fa-twitter"></i></a>
-              <a href="#" class="mr-3 text-white"><i class="fab fa-instagram"></i></a>
-            </div>
+            <h5 class="text-white font-weight-bold mb-3">Customer Support</h5>
+            <p style="color:#9ca3af; font-size:0.9rem;">
+              Need help? Reach out to our 24/7 customer experience team for ticketing assistance.
+            </p>
           </div>
         </div>
         <hr class="mt-4 mb-4" style="border-color:rgba(255,255,255,0.1);" />
@@ -247,11 +305,147 @@
         document.getElementById('citySelectForm').submit();
       }
 
-      $(document).ready(function() {
-        {% if not request.session.user_city %}
-          $('#cityModal').modal('show');
-        {% endif %}
+      // Prevent dropdown from collapsing when clicking inside the menu content
+      $('.city-dropdown-menu').on('click', function(e) {
+        e.stopPropagation();
       });
+
+      // Prevent dropdown from closing when clicking search input
+      $('#navbarCitySearch').on('click', function(e) {
+        e.stopPropagation();
+      });
+
+      // Live City Search Filter inside dropdown
+      document.getElementById('navbarCitySearch').addEventListener('input', function(e) {
+        e.stopPropagation();
+        const query = this.value.toLowerCase().trim();
+        const items = document.querySelectorAll('.nav-city-item');
+
+        items.forEach(item => {
+          const names = item.getAttribute('data-name').toLowerCase();
+          const text = item.innerText.toLowerCase();
+          if (names.includes(query) || text.includes(query)) {
+            item.style.display = 'flex';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+      });
+
+      // Auto Detect Location Handler
+      function autoDetectCity(e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        const statusDiv = document.getElementById('detection-status');
+        const detectBtn = document.getElementById('auto-detect-btn');
+        
+        statusDiv.classList.remove('d-none', 'alert-danger', 'alert-success');
+        statusDiv.classList.add('alert-info');
+        statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Detecting location...';
+        detectBtn.disabled = true;
+
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            function(position) {
+              const lat = position.coords.latitude;
+              const lon = position.coords.longitude;
+
+              // Reverse Geocoding via OpenStreetMap Nominatim
+              fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+                .then(res => res.json())
+                .then(data => {
+                  const addr = data.address || {};
+                  const detected = (addr.city || addr.town || addr.district || addr.county || addr.state_district || addr.state || '').toLowerCase();
+                  processDetectedCity(detected);
+                })
+                .catch(() => fallbackIpGeolocation());
+            },
+            function(error) {
+              fallbackIpGeolocation();
+            },
+            { timeout: 8000 }
+          );
+        } else {
+          fallbackIpGeolocation();
+        }
+      }
+
+      function fallbackIpGeolocation() {
+        const statusDiv = document.getElementById('detection-status');
+        fetch('https://ipapi.co/json/')
+          .then(res => res.json())
+          .then(data => {
+            const detected = (data.city || data.region || '').toLowerCase();
+            processDetectedCity(detected);
+          })
+          .catch(err => {
+            statusDiv.classList.remove('alert-info');
+            statusDiv.classList.add('alert-danger');
+            statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> Could not auto-detect location.';
+            document.getElementById('auto-detect-btn').disabled = false;
+          });
+      }
+
+      function processDetectedCity(detected) {
+        const statusDiv = document.getElementById('detection-status');
+        const cityMap = {
+          'jalandhar': 'jalandhar',
+          'amritsar': 'amritsar',
+          'ludhiana': 'ludhiana',
+          'chandigarh': 'chandigarh',
+          'patiala': 'patiala',
+          'bathinda': 'bathinda',
+          'mumbai': 'mumbai', 'bombay': 'mumbai',
+          'delhi': 'delhi', 'new delhi': 'delhi', 'ncr': 'delhi',
+          'bengaluru': 'bangalore', 'bangalore': 'bangalore',
+          'chennai': 'chennai', 'madras': 'chennai',
+          'hyderabad': 'hyderabad',
+          'pune': 'pune',
+          'kolkata': 'kolkata', 'calcutta': 'kolkata',
+          'ahmedabad': 'ahmedabad',
+          'jaipur': 'jaipur', 'surat': 'surat', 'lucknow': 'lucknow',
+          'kanpur': 'kanpur', 'nagpur': 'nagpur', 'indore': 'indore',
+          'thane': 'thane', 'bhopal': 'bhopal', 'visakhapatnam': 'visakhapatnam', 'vizag': 'visakhapatnam',
+          'patna': 'patna', 'vadodara': 'vadodara', 'ghaziabad': 'ghaziabad',
+          'agra': 'agra', 'nashik': 'nashik', 'faridabad': 'faridabad', 'meerut': 'meerut', 'rajkot': 'rajkot',
+          'varanasi': 'varanasi', 'srinagar': 'srinagar', 'aurangabad': 'aurangabad',
+          'dhanbad': 'dhanbad', 'ranchi': 'ranchi', 'howrah': 'howrah', 'coimbatore': 'coimbatore', 'jabalpur': 'jabalpur',
+          'gwalior': 'gwalior', 'vijayawada': 'vijayawada', 'jodhpur': 'jodhpur',
+          'madurai': 'madurai', 'raipur': 'raipur', 'kota': 'kota',
+          'guwahati': 'guwahati', 'solapur': 'solapur',
+          'bareilly': 'bareilly', 'moradabad': 'moradabad', 'mysore': 'mysore', 'mysuru': 'mysore',
+          'gurgaon': 'gurgaon', 'gurugram': 'gurgaon', 'noida': 'noida',
+          'mangalore': 'mangalore', 'mangaluru': 'mangalore',
+          'kochi': 'kochi', 'cochin': 'kochi', 'goa': 'goa',
+          'trivandrum': 'trivandrum', 'thiruvananthapuram': 'trivandrum',
+          'pondicherry': 'pondicherry', 'puducherry': 'pondicherry',
+          'dehradun': 'dehradun', 'shimla': 'shimla', 'bhubaneswar': 'bhubaneswar',
+          'cuttack': 'cuttack', 'jammu': 'jammu'
+        };
+
+        let matched = null;
+        for (let key in cityMap) {
+          if (detected.includes(key)) {
+            matched = cityMap[key];
+            break;
+          }
+        }
+
+        if (!matched) {
+          // Dynamic cleanup if detected city string is known
+          matched = detected.trim().replace(/\s+/g, '_');
+        }
+
+        statusDiv.classList.remove('alert-info');
+        statusDiv.classList.add('alert-success');
+        statusDiv.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Detected: <strong>${matched.toUpperCase()}</strong>! Loading...`;
+
+        setTimeout(function() {
+          submitCity(matched);
+        }, 600);
+      }
     </script>
   </body>
 </html>

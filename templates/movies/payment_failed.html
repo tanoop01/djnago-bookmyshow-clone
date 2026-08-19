@@ -1,0 +1,57 @@
+{% extends "users/basic.html" %}
+{% block title %}Payment Failed | BookMySeat{% endblock %}
+
+{% block content %}
+<style>
+  .failed-container {
+    max-width: 650px;
+    margin: 3rem auto;
+  }
+  .failed-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(225, 29, 72, 0.08);
+    border: 1px solid #fecdd3;
+    overflow: hidden;
+  }
+  .failed-header {
+    background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+    color: #fff;
+    padding: 2rem;
+    text-center: center;
+  }
+</style>
+
+<div class="container failed-container">
+  <div class="failed-card text-center">
+    <div class="failed-header py-4">
+      <i class="fas fa-times-circle fa-4x mb-3 text-white"></i>
+      <h3 class="font-weight-bold mb-1">Payment Unsuccessful</h3>
+      <p class="text-white-50 mb-0">Transaction ID: {{ payment.razorpay_order_id }}</p>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="alert alert-danger border-0 text-left mb-4" style="border-radius:12px; background:#fff1f2; color:#9f1239;">
+        <h6 class="font-weight-bold mb-1"><i class="fas fa-exclamation-triangle mr-2"></i> Reason for Failure:</h6>
+        <p class="mb-0" style="font-size:0.9rem;">{{ failure_reason|default:"Transaction was declined or cancelled during payment verification." }}</p>
+      </div>
+
+      <div class="card border-0 bg-light p-3 mb-4 text-left" style="border-radius:12px;">
+        <h6 class="font-weight-bold text-dark mb-2"><i class="fas fa-info-circle text-info mr-2"></i> Seat Reservation Notice:</h6>
+        <p class="text-muted mb-0" style="font-size:0.88rem; line-height:1.5;">
+          Because the payment was not completed, your reserved seats have been <strong>automatically released</strong> to prevent seat locking. You can click <strong>Retry Payment</strong> below to re-reserve and complete your booking.
+        </p>
+      </div>
+
+      <div class="d-flex justify-content-center flex-wrap gap-3">
+        <a href="{% url 'payment_retry' payment.id %}" class="btn btn-danger btn-lg px-4 font-weight-bold mr-2 mb-2" style="border-radius:30px;">
+          <i class="fas fa-sync-alt mr-2"></i> Retry Payment
+        </a>
+        <a href="{% url 'movie_list' %}" class="btn btn-outline-secondary btn-lg px-4 font-weight-bold mb-2" style="border-radius:30px;">
+          <i class="fas fa-film mr-2"></i> Back to Movies
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

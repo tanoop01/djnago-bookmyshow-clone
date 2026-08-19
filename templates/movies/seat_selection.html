@@ -1,16 +1,33 @@
 {% extends "users/basic.html" %}
-
 {% block title %}Select Seats - {{ theaters.movie.name }} | BookMySeat{% endblock %}
 
 {% block content %}
 <style>
+  .screen-container {
+    perspective: 400px;
+    margin-bottom: 2rem;
+  }
+  .screen {
+    background: #e2e8f0;
+    height: 14px;
+    width: 80%;
+    margin: 0 auto 1.5rem auto;
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    color: #64748b;
+    padding-top: 2px;
+  }
+
   .seat-container {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-block;
+    position: relative;
     width: 38px;
     height: 38px;
-    margin: 4px;
+    margin: 5px;
     border-radius: 8px;
     border: 1.5px solid #22c55e;
     background-color: #ffffff;
@@ -33,7 +50,7 @@
     color: #15803d;
   }
 
-  .seat-container:hover:not(.sold) {
+  .seat-container:hover:not(.sold):not(.reserved) {
     border-color: #16a34a;
     background-color: #dcfce7;
     transform: scale(1.08);
@@ -44,39 +61,48 @@
     background-color: #22c55e !important;
     border-color: #16a34a !important;
   }
-
-  .seat-container input:checked + label {
+  .seat-container.selected label,
+  .seat-container:has(input:checked) label {
     color: #ffffff !important;
-    font-weight: 700;
   }
 
+  /* Reserved (Held by someone else for < 2 mins) */
+  .seat-container.reserved {
+    background-color: #fef08a !important;
+    border-color: #eab308 !important;
+    cursor: not-allowed;
+    opacity: 0.9;
+  }
+  .seat-container.reserved label {
+    color: #854d0e !important;
+    cursor: not-allowed;
+  }
+
+  /* Sold / Booked */
   .seat-container.sold {
-    background-color: #e2e8f0 !important;
-    border-color: #cbd5e1 !important;
-    color: #94a3b8 !important;
-    cursor: not-allowed !important;
+    background-color: #fee2e2 !important;
+    border-color: #ef4444 !important;
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+  .seat-container.sold label {
+    color: #991b1b !important;
+    text-decoration: line-through;
+    cursor: not-allowed;
   }
 
-  .seat-legend-box {
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
-    display: inline-block;
-  }
-
-  .screen-indicator {
-    background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
-    height: 40px;
-    border-radius: 8px 8px 30px 30px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  .legend-item {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 0.8rem;
-    letter-spacing: 0.1em;
-    color: #64748b;
-    text-transform: uppercase;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .legend-box {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    margin-right: 8px;
+    display: inline-block;
   }
 </style>
 
@@ -104,116 +130,153 @@
                 <span class="mx-2">|</span>
                 <i class="fas fa-map-marker-alt text-danger mr-1"></i> {{ theaters.get_city_display }}
                 <span class="mx-2">|</span>
-                <i class="far fa-clock text-warning mr-1"></i> {{ theaters.time|date:"A, B d, Y at I:i A" }}
+                <i class="far fa-clock text-warning mr-1"></i> {{ theaters.time|date:"D, M d, Y at h:i A" }}
               </p>
             </div>
             <div class="mt-3 mt-sm-0">
-              <span class="badge badge-primary px-3 py-2" style="font-size:0.85rem; border-radius:20px;">
-                ₹{{ theaters.movie.price }} / Ticket
-              </span>
+              <span class="badge badge-success px-3 py-2" style="font-size:1rem;">₹{{ theaters.movie.price }} / Seat</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Seat Map Card -->
-      <div class="card shadow-sm border-0" style="border-radius:16px;">
-        <div class="card-body p-4">
-          <h5 class="text-center font-weight-bold mb-3 text-dark">Select Seats</h5>
-          
-          <div class="screen-indicator mb-5">
-            <i class="fas fa-desktop mr-2"></i> SCREEN THIS WAY
-          </div>
-
-          <form method="POST" id="bookingForm">
-            {% csrf_token %}
-            
-            <div class="d-flex justify-content-center flex-wrap mb-5">
-              {% for seat in seats %}
-                <div class="seat-container {% if seat.is_booked %}sold{% endif %}" id="seat-box-{{ seat.id }}">
-                  {% if not seat.is_booked %}
-                    <input
-                      type="checkbox"
-                      name="seats"
-                      value="{{ seat.id }}"
-                      class="d-none seat-checkbox"
-                      id="seat-{{ seat.id }}"
-                    />
-                    <label for="seat-{{ seat.id }}">{{ seat.seat_number }}</label>
-                  {% else %}
-                    <span>{{ seat.seat_number }}</span>
-                  {% endif %}
-                </div>
-              {% endfor %}
-            </div>
-
-            <!-- Seat Legend -->
-            <div class="d-flex justify-content-center align-items-center mb-4 flex-wrap" style="gap: 1.5rem; font-size:0.85rem;">
-              <div class="d-flex align-items-center">
-                <span class="seat-legend-box mr-2" style="border:1.5px solid #22c55e; background:#fff;"></span>
-                <span class="text-muted font-weight-bold">Available</span>
-              </div>
-              <div class="d-flex align-items-center">
-                <span class="seat-legend-box mr-2" style="background:#22c55e;"></span>
-                <span class="text-muted font-weight-bold">Selected</span>
-              </div>
-              <div class="d-flex align-items-center">
-                <span class="seat-legend-box mr-2" style="background:#cbd5e1;"></span>
-                <span class="text-muted font-weight-bold">Booked / Sold</span>
-              </div>
-            </div>
-
-            <hr class="my-4">
-
-            <!-- Summary & Submit Button -->
-            <div class="d-flex justify-content-between align-items-center flex-wrap">
-              <div>
-                <div class="text-muted" style="font-size:0.85rem;">Selected Seats:</div>
-                <div class="font-weight-bold text-primary" id="selectedSeatsSummary" style="font-size:1.1rem;">None</div>
-              </div>
-              <button type="submit" class="btn btn-success btn-lg px-5 py-2 font-weight-bold" style="border-radius:30px; font-size:1rem;">
-                <i class="fas fa-ticket-alt mr-2"></i> Book Selected Seats
-              </button>
-            </div>
-          </form>
-
+      <!-- Live Seat Legend -->
+      <div class="d-flex justify-content-center flex-wrap gap-4 mb-4 p-3 bg-white rounded shadow-sm border">
+        <div class="legend-item mr-4">
+          <span class="legend-box" style="border: 1.5px solid #22c55e; background: #fff;"></span> Available
+        </div>
+        <div class="legend-item mr-4">
+          <span class="legend-box" style="border: 1.5px solid #16a34a; background: #22c55e;"></span> Selected
+        </div>
+        <div class="legend-item mr-4">
+          <span class="legend-box" style="border: 1.5px solid #eab308; background: #fef08a;"></span> Reserved (Hold &lt; 2m)
+        </div>
+        <div class="legend-item">
+          <span class="legend-box" style="border: 1.5px solid #ef4444; background: #fee2e2;"></span> Booked
         </div>
       </div>
+
+      <!-- Screen Graphic -->
+      <div class="screen-container">
+        <div class="screen">SCREEN THIS WAY</div>
+      </div>
+
+      <!-- Interactive Seat Selection Form -->
+      <form method="POST" action="{% url 'book_seats' theaters.id %}?date={{ show_date|date:'Y-m-d' }}">
+        {% csrf_token %}
+        <input type="hidden" name="show_date" value="{{ show_date|date:'Y-m-d' }}">
+
+        <div class="text-center mb-5">
+          {% for seat in seats %}
+            {% with status=seat.status_for_user %}
+              <div class="seat-container {% if status == 'BOOKED' %}sold{% elif status == 'RESERVED' %}reserved{% endif %}" id="seat-box-{{ seat.id }}">
+                {% if status == 'BOOKED' or status == 'RESERVED' %}
+                  <input type="checkbox" id="seat-{{ seat.id }}" name="seats" value="{{ seat.id }}" class="d-none" disabled>
+                  <label for="seat-{{ seat.id }}" title="{% if status == 'BOOKED' %}Booked{% else %}Reserved by someone else{% endif %}">
+                    {{ seat.seat_number }}
+                  </label>
+                {% else %}
+                  <input type="checkbox" id="seat-{{ seat.id }}" name="seats" value="{{ seat.id }}" class="d-none">
+                  <label for="seat-{{ seat.id }}">
+                    {{ seat.seat_number }}
+                  </label>
+                {% endif %}
+              </div>
+            {% endwith %}
+
+            {% if forloop.counter|divisibleby:10 %}
+              <br/>
+            {% endif %}
+          {% endfor %}
+        </div>
+
+        <div class="card border-0 shadow-sm p-3 text-center bg-white" style="border-radius:14px;">
+          <div class="mb-3" style="font-size:0.95rem;">
+            Selected Seats: <strong id="selected-seats-display" class="text-primary">None</strong>
+            <span class="mx-2">&bull;</span>
+            Total Amount: <strong id="total-price-display" class="text-success">₹0.00</strong>
+          </div>
+          <div>
+            <button type="submit" class="btn btn-success btn-lg px-5 font-weight-bold" style="border-radius:30px;" id="submit-btn" disabled>
+              <i class="fas fa-lock mr-2"></i> Reserve Seats & Proceed to Payment
+            </button>
+          </div>
+        </div>
+      </form>
 
     </div>
   </div>
 </div>
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const checkboxes = document.querySelectorAll('.seat-checkbox');
-    const selectedSummary = document.getElementById('selectedSeatsSummary');
+  document.addEventListener('DOMContentLoaded', function() {
+    const seatPrice = parseFloat("{{ theaters.movie.price }}") || 200.00;
+    const checkboxes = document.querySelectorAll('.seat-container input[type="checkbox"]:not([disabled])');
+    const displaySeats = document.getElementById('selected-seats-display');
+    const displayPrice = document.getElementById('total-price-display');
+    const submitBtn = document.getElementById('submit-btn');
 
     function updateSummary() {
-      const selectedLabels = [];
-      checkboxes.forEach(function (chk) {
-        const parent = chk.closest('.seat-container');
-        if (chk.checked) {
+      const selected = [];
+      checkboxes.forEach(cb => {
+        const parent = cb.closest('.seat-container');
+        if (cb.checked) {
           parent.classList.add('selected');
-          const label = parent.querySelector('label');
-          if (label) selectedLabels.push(label.textContent.trim());
+          selected.push(parent.querySelector('label').innerText.trim());
         } else {
           parent.classList.remove('selected');
         }
       });
 
-      if (selectedLabels.length > 0) {
-        selectedSummary.textContent = selectedLabels.join(', ') + ' (' + selectedLabels.length + ' seat' + (selectedLabels.length > 1 ? 's' : '') + ')';
+      if (selected.length > 0) {
+        displaySeats.innerText = selected.join(', ');
+        displayPrice.innerText = '₹' + (selected.length * seatPrice).toFixed(2);
+        submitBtn.disabled = false;
       } else {
-        selectedSummary.textContent = 'None';
+        displaySeats.innerText = 'None';
+        displayPrice.innerText = '₹0.00';
+        submitBtn.disabled = true;
       }
     }
 
-    checkboxes.forEach(function (chk) {
-      chk.addEventListener('change', updateSummary);
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', updateSummary);
     });
 
-    updateSummary();
+    // Live Availability Polling (every 3 seconds)
+    function pollLiveAvailability() {
+      fetch("{% url 'live_seat_availability' theaters.id %}")
+        .then(response => response.json())
+        .then(data => {
+          if (data && data.seats) {
+            data.seats.forEach(seat => {
+              const seatBox = document.getElementById('seat-box-' + seat.id);
+              if (seatBox) {
+                const input = seatBox.querySelector('input');
+                const label = seatBox.querySelector('label');
+
+                if (seat.status === 'BOOKED') {
+                  seatBox.className = 'seat-container sold';
+                  if (input) input.disabled = true;
+                  if (label) label.title = 'Booked';
+                } else if (seat.status === 'RESERVED' && !seat.is_mine) {
+                  seatBox.className = 'seat-container reserved';
+                  if (input) input.disabled = true;
+                  if (label) label.title = 'Reserved by someone else';
+                } else if (seat.status === 'AVAILABLE' && !input.checked) {
+                  seatBox.className = 'seat-container';
+                  if (input) input.disabled = false;
+                  if (label) label.title = 'Available';
+                }
+              }
+            });
+            updateSummary();
+          }
+        })
+        .catch(err => console.log('Live polling error:', err));
+    }
+
+    setInterval(pollLiveAvailability, 3000);
   });
 </script>
 {% endblock %}

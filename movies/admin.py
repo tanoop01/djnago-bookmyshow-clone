@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Movie, MoviePoster, Theater, Seat, Booking, Review, MovieView
+from .models import Movie, MoviePoster, Theater, Seat, Booking, Payment, Review, MovieView
 
 
 class MoviePosterInline(admin.TabularInline):
@@ -28,6 +28,20 @@ class MovieAdmin(admin.ModelAdmin):
 class MoviePosterAdmin(admin.ModelAdmin):
     list_display = ['movie', 'caption', 'created_at']
     list_filter = ['movie']
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ['razorpay_order_id', 'user', 'amount', 'status', 'razorpay_payment_id', 'created_at']
+    list_filter = ['status', 'currency', 'created_at']
+    search_fields = ['razorpay_order_id', 'razorpay_payment_id', 'user__username', 'booking_group_id']
+
+
+@admin.register(Booking)
+class BookingAdmin(admin.ModelAdmin):
+    list_display = ['booking_id', 'user', 'movie', 'theater', 'seat', 'status', 'total_amount', 'show_date', 'show_time', 'booked_at']
+    list_filter = ['status', 'movie', 'theater', 'show_date']
+    search_fields = ['booking_id', 'payment_reference', 'user__username', 'movie__name']
 
 
 @admin.register(Review)
@@ -61,13 +75,6 @@ class SeatAdmin(admin.ModelAdmin):
     list_display = ['theater', 'seat_number', 'is_booked']
     list_filter = ['is_booked', 'theater']
     search_fields = ['seat_number']
-
-
-@admin.register(Booking)
-class BookingAdmin(admin.ModelAdmin):
-    list_display = ['booking_id', 'user', 'movie', 'theater', 'seat', 'show_date', 'show_time', 'booked_at']
-    list_filter = ['movie', 'theater', 'show_date']
-    search_fields = ['booking_id', 'payment_reference', 'user__username', 'movie__name']
 
 
 @admin.register(MovieView)
