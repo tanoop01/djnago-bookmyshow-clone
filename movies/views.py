@@ -550,73 +550,82 @@ def book_seats(request, theater_id):
         created_bookings = []
         now = timezone.now()
 
-        # Atomic transaction with row locking for race-condition protection
-        with transaction.atomic():
-            target_seats = Seat.objects.select_for_update().filter(id__in=selected_seats, theater=theaters)
-            
-            for seat in target_seats:
-                if seat.is_locked_for_user(request.user):
-                    error_seats.append(seat.seat_number)
-                    continue
-
-            if not error_seats:
+        try:
+            # Atomic transaction with row locking for race-condition protection
+            with transaction.atomic():
+                target_seats = Seat.objects.select_for_update().filter(id__in=selected_seats, theater=theaters)
+                
                 for seat in target_seats:
-                    seat.reserved_by = request.user
-                    seat.reserved_at = now
-                    seat.save(update_fields=['reserved_by', 'reserved_at'])
+                    if seat.is_locked_for_user(request.user):
+                        error_seats.append(seat.seat_number)
+                        continue
 
-                    booking = Booking.objects.create(
-                        user=request.user,
-                        seat=seat,
-                        movie=theaters.movie,
-                        theater=theaters,
-                        show_date=show_date,
-                        show_time=show_time_str,
-                        status='PENDING',
-                        total_amount=total_price,
-                        payment_reference=booking_group_id
-                    )
-                    created_bookings.append(booking)
+                if not error_seats:
+                    for seat in target_seats:
+                        seat.reserved_by = request.user
+                        seat.reserved_at = now
+                        seat.save(update_fields=['reserved_by', 'reserved_at'])
 
-        if error_seats:
-            error_message = f"The following seats are already reserved or booked by another user: {', '.join(error_seats)}"
+                        booking = Booking.objects.create(
+                            user=request.user,
+                            seat=seat,
+                            movie=theaters.movie,
+                            theater=theaters,
+                            show_date=show_date,
+                            show_time=show_time_str,
+                            status='PENDING',
+                            total_amount=total_price,
+                            payment_reference=booking_group_id
+                        )
+                        created_bookings.append(booking)
+
+            if error_seats:
+                error_message = f"The following seats are already reserved or booked by another user: {', '.join(error_seats)}"
+                return render(request, 'movies/seat_selection.html', {
+                    'theaters': theaters,
+                    'seats': seats,
+                    'show_date': show_date,
+                    'show_time': show_time_str,
+                    'error': error_message,
+                })
+
+            razorpay_client = get_razorpay_client()
+            razorpay_order_id = None
+
+            if razorpay_client:
+                try:
+                    order_data = {
+                        'amount': int(total_price * 100),
+                        'currency': 'INR',
+                        'receipt': booking_group_id,
+                        'notes': {'user_id': request.user.id, 'movie': theaters.movie.name}
+                    }
+                    rzp_order = razorpay_client.order.create(data=order_data)
+                    razorpay_order_id = rzp_order['id']
+                except Exception as e:
+                    print("Razorpay API Order Error:", e)
+
+            if not razorpay_order_id:
+                razorpay_order_id = f"order_test_{uuid.uuid4().hex[:12]}"
+
+            payment = Payment.objects.create(
+                user=request.user,
+                booking_group_id=booking_group_id,
+                razorpay_order_id=razorpay_order_id,
+                amount=total_price,
+                currency='INR',
+                status='CREATED'
+            )
+
+            return redirect('payment_checkout', payment_id=payment.id)
+        except Exception:
             return render(request, 'movies/seat_selection.html', {
                 'theaters': theaters,
                 'seats': seats,
                 'show_date': show_date,
                 'show_time': show_time_str,
-                'error': error_message,
+                'error': 'Seat reservations are disabled in read-only preview mode. Connect a PostgreSQL database for live bookings.',
             })
-
-        razorpay_client = get_razorpay_client()
-        razorpay_order_id = None
-
-        if razorpay_client:
-            try:
-                order_data = {
-                    'amount': int(total_price * 100),
-                    'currency': 'INR',
-                    'receipt': booking_group_id,
-                    'notes': {'user_id': request.user.id, 'movie': theaters.movie.name}
-                }
-                rzp_order = razorpay_client.order.create(data=order_data)
-                razorpay_order_id = rzp_order['id']
-            except Exception as e:
-                print("Razorpay API Order Error:", e)
-
-        if not razorpay_order_id:
-            razorpay_order_id = f"order_test_{uuid.uuid4().hex[:12]}"
-
-        payment = Payment.objects.create(
-            user=request.user,
-            booking_group_id=booking_group_id,
-            razorpay_order_id=razorpay_order_id,
-            amount=total_price,
-            currency='INR',
-            status='CREATED'
-        )
-
-        return redirect('payment_checkout', payment_id=payment.id)
 
     return render(request, 'movies/seat_selection.html', {
         'theaters': theaters,
@@ -630,32 +639,35 @@ def book_seats(request, theater_id):
 def cancel_or_modify_reservation(request, payment_id):
     payment = get_object_or_404(Payment, id=payment_id, user=request.user)
 
-    if payment.booking_group_id.startswith('EVT-'):
-        evt_booking = EventBooking.objects.filter(payment_reference=payment.booking_group_id).first()
-        if evt_booking:
-            evt_booking.status = 'CANCELLED'
-            evt_booking.save()
-        payment.status = 'CANCELLED'
-        payment.save()
-        messages.info(request, "Your event booking transaction was cancelled.")
-        return redirect('event_list')
+    try:
+        if payment.booking_group_id.startswith('EVT-'):
+            evt_booking = EventBooking.objects.filter(payment_reference=payment.booking_group_id).first()
+            if evt_booking:
+                evt_booking.status = 'CANCELLED'
+                evt_booking.save()
+            payment.status = 'CANCELLED'
+            payment.save()
+            messages.info(request, "Your event booking transaction was cancelled.")
+            return redirect('event_list')
 
-    bookings = Booking.objects.filter(payment_reference=payment.booking_group_id)
-    theater_id = None
-    with transaction.atomic():
-        payment.status = 'CANCELLED'
-        payment.failure_reason = 'User cancelled or modified seat selection.'
-        payment.save()
+        bookings = Booking.objects.filter(payment_reference=payment.booking_group_id)
+        theater_id = None
+        with transaction.atomic():
+            payment.status = 'CANCELLED'
+            payment.failure_reason = 'User cancelled or modified seat selection.'
+            payment.save()
 
-        for b in bookings:
-            theater_id = b.theater.id
-            b.status = 'CANCELLED'
-            b.save()
-            b.seat.release_reservation()
+            for b in bookings:
+                theater_id = b.theater.id
+                b.status = 'CANCELLED'
+                b.save()
+                b.seat.release_reservation()
 
-    messages.info(request, "Your temporary seat reservation was released. You can modify your selection below.")
-    if theater_id:
-        return redirect('book_seats', theater_id=theater_id)
+        messages.info(request, "Your temporary seat reservation was released. You can modify your selection below.")
+        if theater_id:
+            return redirect('book_seats', theater_id=theater_id)
+    except Exception:
+        messages.warning(request, "Database is in read-only preview mode.")
     return redirect('movie_list')
 
 
@@ -700,15 +712,18 @@ def payment_checkout(request, payment_id):
     remaining_seconds = max(0, int(120 - elapsed))
 
     if remaining_seconds <= 0 and payment.status == 'CREATED':
-        with transaction.atomic():
-            payment.status = 'FAILED'
-            payment.failure_reason = '2-minute seat reservation timer expired.'
-            payment.save()
+        try:
+            with transaction.atomic():
+                payment.status = 'FAILED'
+                payment.failure_reason = '2-minute seat reservation timer expired.'
+                payment.save()
 
-            for b in bookings:
-                b.status = 'FAILED'
-                b.save()
-                b.seat.release_reservation()
+                for b in bookings:
+                    b.status = 'FAILED'
+                    b.save()
+                    b.seat.release_reservation()
+        except Exception:
+            pass
 
         messages.warning(request, "Your 2-minute seat reservation timer expired. The seats have been automatically released.")
         return redirect('book_seats', theater_id=primary_booking.theater.id)
@@ -888,44 +903,48 @@ def payment_retry(request, payment_id):
     new_group_id = f"GRP-{uuid.uuid4().hex[:10].upper()}"
     total_price = old_payment.amount
 
-    with transaction.atomic():
-        for b in old_bookings:
-            b.status = 'PENDING'
-            b.payment_reference = new_group_id
-            b.save()
-            b.seat.reserved_by = request.user
-            b.seat.reserved_at = now
-            b.seat.save()
+    try:
+        with transaction.atomic():
+            for b in old_bookings:
+                b.status = 'PENDING'
+                b.payment_reference = new_group_id
+                b.save()
+                b.seat.reserved_by = request.user
+                b.seat.reserved_at = now
+                b.seat.save()
 
-    razorpay_client = get_razorpay_client()
-    razorpay_order_id = None
+        razorpay_client = get_razorpay_client()
+        razorpay_order_id = None
 
-    if razorpay_client:
-        try:
-            order_data = {
-                'amount': int(total_price * 100),
-                'currency': 'INR',
-                'receipt': new_group_id,
-            }
-            rzp_order = razorpay_client.order.create(data=order_data)
-            razorpay_order_id = rzp_order['id']
-        except Exception as e:
-            print("Razorpay order retry creation error:", e)
+        if razorpay_client:
+            try:
+                order_data = {
+                    'amount': int(total_price * 100),
+                    'currency': 'INR',
+                    'receipt': new_group_id,
+                }
+                rzp_order = razorpay_client.order.create(data=order_data)
+                razorpay_order_id = rzp_order['id']
+            except Exception as e:
+                print("Razorpay order retry creation error:", e)
 
-    if not razorpay_order_id:
-        razorpay_order_id = f"order_test_{uuid.uuid4().hex[:12]}"
+        if not razorpay_order_id:
+            razorpay_order_id = f"order_test_{uuid.uuid4().hex[:12]}"
 
-    new_payment = Payment.objects.create(
-        user=request.user,
-        booking_group_id=new_group_id,
-        razorpay_order_id=razorpay_order_id,
-        amount=total_price,
-        currency='INR',
-        status='CREATED'
-    )
+        new_payment = Payment.objects.create(
+            user=request.user,
+            booking_group_id=new_group_id,
+            razorpay_order_id=razorpay_order_id,
+            amount=total_price,
+            currency='INR',
+            status='CREATED'
+        )
 
-    messages.info(request, "Created new payment session for your booking retry. You have 2 minutes to complete payment.")
-    return redirect('payment_checkout', payment_id=new_payment.id)
+        messages.info(request, "Created new payment session for your booking retry. You have 2 minutes to complete payment.")
+        return redirect('payment_checkout', payment_id=new_payment.id)
+    except Exception:
+        messages.warning(request, "Payment retry is disabled on read-only preview mode.")
+        return redirect('profile')
 
 
 @csrf_exempt
