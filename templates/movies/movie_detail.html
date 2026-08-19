@@ -95,7 +95,7 @@
 
     <div class="row align-items-center">
       <div class="col-md-4 col-lg-3 text-center mb-4 mb-md-0">
-        <img src="{{ movie.image.url }}" alt="{{ movie.name }}" class="poster-img">
+        <img src="{{ movie.image_url }}" alt="{{ movie.name }}" class="poster-img">
       </div>
       <div class="col-md-8 col-lg-9">
         <div class="d-flex align-items-center flex-wrap mb-2">
@@ -160,7 +160,7 @@
             {% for poster in posters %}
               <div class="col-6 col-md-4 mb-3">
                 <div class="card border-0 shadow-sm rounded-lg overflow-hidden h-100">
-                  <img src="{{ poster.image.url }}" class="card-img-top" alt="{{ poster.caption|default:movie.name }}" style="height:200px; object-fit:cover;">
+                  <img src="{{ poster.image_url }}" class="card-img-top" alt="{{ poster.caption|default:movie.name }}" style="height:200px; object-fit:cover;">
                   {% if poster.caption %}
                     <div class="card-body p-2 text-center" style="font-size:0.8rem; color:#64748b;">{{ poster.caption }}</div>
                   {% endif %}
@@ -321,7 +321,7 @@
             {% for sim in similar_movies %}
               <div class="d-flex align-items-center mb-3">
                 <a href="{% url 'movie_detail' sim.id %}">
-                  <img src="{{ sim.image.url }}" alt="{{ sim.name }}" style="width:60px; height:80px; object-fit:cover; border-radius:8px;" class="mr-3">
+                  <img src="{{ sim.image_url }}" alt="{{ sim.name }}" style="width:60px; height:80px; object-fit:cover; border-radius:8px;" class="mr-3">
                 </a>
                 <div>
                   <h6 class="font-weight-bold mb-1"><a href="{% url 'movie_detail' sim.id %}" class="text-dark">{{ sim.name }}</a></h6>
@@ -346,7 +346,7 @@
             {% for trend in trending_movies %}
               <div class="d-flex align-items-center mb-3">
                 <a href="{% url 'movie_detail' trend.id %}">
-                  <img src="{{ trend.image.url }}" alt="{{ trend.name }}" style="width:60px; height:80px; object-fit:cover; border-radius:8px;" class="mr-3">
+                  <img src="{{ trend.image_url }}" alt="{{ trend.name }}" style="width:60px; height:80px; object-fit:cover; border-radius:8px;" class="mr-3">
                 </a>
                 <div>
                   <h6 class="font-weight-bold mb-1"><a href="{% url 'movie_detail' trend.id %}" class="text-dark">{{ trend.name }}</a></h6>

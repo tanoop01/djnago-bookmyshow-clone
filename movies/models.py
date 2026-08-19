@@ -43,7 +43,7 @@ class Movie(models.Model):
     ]
 
     name = models.CharField(max_length=255)
-    image = models.ImageField(upload_to='movies/')
+    image = models.ImageField(upload_to='movies/', blank=True, null=True)
     rating = models.DecimalField(max_digits=3, decimal_places=1, default=0.0)
     cast = models.TextField()
     description = models.TextField(blank=True, null=True)
@@ -61,6 +61,15 @@ class Movie(models.Model):
             models.Index(fields=['language', 'rating']),
             models.Index(fields=['release_date']),
         ]
+
+    @property
+    def image_url(self):
+        if self.image:
+            try:
+                return self.image.url
+            except ValueError:
+                pass
+        return 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop'
 
     @property
     def trailer_embed_url(self):
@@ -86,9 +95,18 @@ class Movie(models.Model):
 
 class MoviePoster(models.Model):
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='posters')
-    image = models.ImageField(upload_to='movie_posters/')
+    image = models.ImageField(upload_to='movie_posters/', blank=True, null=True)
     caption = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def image_url(self):
+        if self.image:
+            try:
+                return self.image.url
+            except ValueError:
+                pass
+        return 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop'
 
     def __str__(self):
         return f"Poster for {self.movie.name}"

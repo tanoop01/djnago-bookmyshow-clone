@@ -209,7 +209,7 @@
           {% for movie in most_booked_movies %}
             <div class="d-flex align-items-center justify-content-between p-2 mb-2 bg-light rounded" style="border: 1px solid #f1f5f9;">
               <div class="d-flex align-items-center">
-                <img src="{{ movie.image.url }}" alt="{{ movie.name }}" class="rounded mr-3 shadow-sm" style="width:42px; height:56px; object-fit:cover;">
+                <img src="{{ movie.image_url }}" alt="{{ movie.name }}" class="rounded mr-3 shadow-sm" style="width:42px; height:56px; object-fit:cover;">
                 <div>
                   <h6 class="font-weight-bold text-dark mb-0" style="font-size:0.92rem;">{{ movie.name }}</h6>
                   <small class="text-muted">{{ movie.get_genre_display }} &bull; ★ {{ movie.rating }}</small>

@@ -10,3 +10,6 @@ qrcode
 celery
 redis
 pillow
+razorpay
+python-dotenv
+requests

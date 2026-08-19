@@ -98,7 +98,7 @@
   <div class="container">
     <div class="row align-items-center">
       <div class="col-md-3 text-center mb-3 mb-md-0">
-        <img src="{{ movie.image.url }}" alt="{{ movie.name }}" class="img-fluid rounded shadow-lg" style="max-height: 220px; object-fit: cover;">
+        <img src="{{ movie.image_url }}" alt="{{ movie.name }}" class="img-fluid rounded shadow-lg" style="max-height: 220px; object-fit: cover;">
       </div>
       <div class="col-md-9">
         <div class="d-flex align-items-center mb-2 flex-wrap">
@@ -176,7 +176,7 @@
           <div class="col-md-7">
             <div class="d-flex align-items-center flex-wrap">
               <a href="{% url 'book_seats' theater.id %}?date={{ selected_date }}" class="showtime-box mr-3 mb-2">
-                <span>{{ theater.time|date:"I:i A" }}</span>
+                <span>{{ theater.time|date:"h:i A" }}</span>
                 <span class="screen-name">{{ theater.screen }}</span>
               </a>
             </div>

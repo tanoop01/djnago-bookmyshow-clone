@@ -497,7 +497,7 @@ body { font-family: 'Poppins', Arial, sans-serif; }
             <div class="movie-card w-100">
               <a href="{% url 'movie_detail' movie.id %}" style="text-decoration:none;color:inherit;display:block;">
                 <div class="mc-thumb">
-                  <img src="{{ movie.image.url }}" alt="{{ movie.name }}" loading="lazy">
+                  <img src="{{ movie.image_url }}" alt="{{ movie.name }}" loading="lazy">
                   <span class="badge-genre" data-g="{{ movie.genre }}">{{ movie.get_genre_display }}</span>
                   <span class="badge-rating">★ {{ movie.rating }}</span>
                 </div>
@@ -583,7 +583,7 @@ body { font-family: 'Poppins', Arial, sans-serif; }
           <div class="movie-card w-100">
             <a href="{% url 'movie_detail' movie.id %}" style="text-decoration:none;color:inherit;display:block;">
               <div class="mc-thumb">
-                <img src="{{ movie.image.url }}" alt="{{ movie.name }}" loading="lazy">
+                <img src="{{ movie.image_url }}" alt="{{ movie.name }}" loading="lazy">
                 <span class="badge-genre" data-g="{{ movie.genre }}">{{ movie.get_genre_display }}</span>
                 <span class="badge-rating">★ {{ movie.rating }}</span>
               </div>
