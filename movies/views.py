@@ -253,13 +253,16 @@ def movie_detail(request, movie_id):
 
     has_booked, can_review, target_booking, review_msg = check_review_eligibility(request.user, movie)
     user_review = None
-    if request.user.is_authenticated:
-        user_review = Review.objects.filter(user=request.user, movie=movie).first()
-        MovieView.objects.create(user=request.user, movie=movie)
-    else:
-        if not request.session.session_key:
-            request.session.create()
-        MovieView.objects.create(session_key=request.session.session_key, movie=movie)
+    try:
+        if request.user.is_authenticated:
+            user_review = Review.objects.filter(user=request.user, movie=movie).first()
+            MovieView.objects.create(user=request.user, movie=movie)
+        else:
+            s_key = getattr(request.session, 'session_key', None)
+            if s_key:
+                MovieView.objects.create(session_key=s_key, movie=movie)
+    except Exception:
+        pass
 
     reviews = movie.reviews.filter(is_reported=False).order_by('-created_at')
     total_reviews = reviews.count()
@@ -359,12 +362,15 @@ def theater_list(request, movie_id):
             'is_selected': d == selected_date
         })
 
-    if request.user.is_authenticated:
-        MovieView.objects.create(user=request.user, movie=movie)
-    else:
-        if not request.session.session_key:
-            request.session.create()
-        MovieView.objects.create(session_key=request.session.session_key, movie=movie)
+    try:
+        if request.user.is_authenticated:
+            MovieView.objects.create(user=request.user, movie=movie)
+        else:
+            s_key = getattr(request.session, 'session_key', None)
+            if s_key:
+                MovieView.objects.create(session_key=s_key, movie=movie)
+    except Exception:
+        pass
 
     context = {
         'movie': movie,
