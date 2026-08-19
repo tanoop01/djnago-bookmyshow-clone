@@ -215,7 +215,7 @@ class Command(BaseCommand):
         total_seats_created = 0
 
         for t_info in THEATERS_DATA:
-            for movie in created_movies[:4]: # Link top 4 movies per theater location
+            for movie in created_movies:
                 for screen_name, hour, minute in SCREENS_AND_TIMES:
                     # Construct specific showtime date and time
                     show_datetime = now.replace(hour=hour, minute=minute, second=0, microsecond=0) + timedelta(days=1)

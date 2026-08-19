@@ -9,6 +9,8 @@ def _patched_starttls(self, keyfile=None, certfile=None, context=None):
 
 smtplib.SMTP.starttls = _patched_starttls
 
-from .celery import app as celery_app
-
-__all__ = ('celery_app',)
+try:
+    from .celery import app as celery_app
+    __all__ = ('celery_app',)
+except ImportError:
+    pass

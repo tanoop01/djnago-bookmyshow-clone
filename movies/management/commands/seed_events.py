@@ -4,7 +4,7 @@ from datetime import timedelta
 from movies.models import Event
 
 SAMPLE_EVENTS = [
-    # Live Events
+    # Live Events & Standup Comedy
     {
         'name': 'Lollapalooza India 2026',
         'category': 'events',
@@ -32,6 +32,34 @@ SAMPLE_EVENTS = [
         'image_url': 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?w=600&auto=format&fit=crop',
         'banner_url': 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200&auto=format&fit=crop',
         'description': 'Catch India\'s favorite Sakht Launda Zakir Khan live as he performs his newest hilarious stand-up comedy special.'
+    },
+    {
+        'name': 'Anubhav Singh Bassi - Bas Kar Bassi',
+        'category': 'events',
+        'city': 'jalandhar',
+        'venue_name': 'Curo High Street Auditorium, Jalandhar',
+        'price': 799.00,
+        'rating': 4.9,
+        'organizer': 'Central Club Comedy',
+        'duration_mins': 90,
+        'language': 'Hindi / Punjabi',
+        'image_url': 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?w=600&auto=format&fit=crop',
+        'banner_url': 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200&auto=format&fit=crop',
+        'description': 'Anubhav Singh Bassi brings his wildly popular stand-up special to Jalandhar! Prepare for non-stop laughter and relatable stories.'
+    },
+    {
+        'name': 'Harsh Gujral Live - Jo Bolta Hai Wohi Hota Hai',
+        'category': 'events',
+        'city': 'chandigarh',
+        'venue_name': 'Tagore Theatre, Sector 18, Chandigarh',
+        'price': 899.00,
+        'rating': 4.8,
+        'organizer': 'North Comedy Club',
+        'duration_mins': 90,
+        'language': 'Hindi / Punjabi',
+        'image_url': 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop',
+        'banner_url': 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&auto=format&fit=crop',
+        'description': 'Harsh Gujral has brand new jokes and crowd work that will leave you gasping for breath.'
     },
     {
         'name': 'India Tech & AI Conclave 2026',
@@ -77,6 +105,20 @@ SAMPLE_EVENTS = [
         'banner_url': 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&auto=format&fit=crop',
         'description': 'A hilarious satirical play about red tape and bureaucratic delays if Shah Jahan had tried to build the Taj Mahal today.'
     },
+    {
+        'name': 'Heer Ranjha - Classical Punjabi Musical Play',
+        'category': 'plays',
+        'city': 'jalandhar',
+        'venue_name': 'KL Saigal Memorial Hall, Jalandhar',
+        'price': 450.00,
+        'rating': 4.8,
+        'organizer': 'Punjab Heritage & Cultural Society',
+        'duration_mins': 130,
+        'language': 'Punjabi',
+        'image_url': 'https://images.unsplash.com/photo-1460723237483-7a6dc9d0b212?w=600&auto=format&fit=crop',
+        'banner_url': 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=1200&auto=format&fit=crop',
+        'description': 'An enchanting theatrical rendition of Waris Shah\'s timeless romantic legend Heer Ranjha with live folk musicians.'
+    },
 
     # Sports Matches
     {
@@ -94,6 +136,20 @@ SAMPLE_EVENTS = [
         'description': 'Experience the electric atmosphere of the grand finale of India\'s biggest T20 cricket league live in the world\'s largest stadium!'
     },
     {
+        'name': 'India vs Pakistan T20 Cricket Clash',
+        'category': 'sports',
+        'city': 'chandigarh',
+        'venue_name': 'PCA Stadium, Mohali / Chandigarh',
+        'price': 2500.00,
+        'rating': 5.0,
+        'organizer': 'ICC & BCCI',
+        'duration_mins': 210,
+        'language': 'English / Hindi',
+        'image_url': 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=600&auto=format&fit=crop',
+        'banner_url': 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=1200&auto=format&fit=crop',
+        'description': 'The ultimate rivalry renewed! High-intensity T20 cricket match packed with stadium adrenaline and world-class action.'
+    },
+    {
         'name': 'ISL Football Derby - Mumbai City vs Mohun Bagan',
         'category': 'sports',
         'city': 'mumbai',
@@ -109,6 +165,20 @@ SAMPLE_EVENTS = [
     },
 
     # Music & Concerts
+    {
+        'name': 'Diljit Dosanjh - Dil-Luminati India Tour',
+        'category': 'music',
+        'city': 'jalandhar',
+        'venue_name': 'Jalandhar Sports Complex Grounds',
+        'price': 2499.00,
+        'rating': 5.0,
+        'organizer': 'Speed Records & BookMySeat Live',
+        'duration_mins': 180,
+        'language': 'Punjabi / Hindi',
+        'image_url': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop',
+        'banner_url': 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&auto=format&fit=crop',
+        'description': 'Global superstar Diljit Dosanjh brings his monumental Dil-Luminati concert tour home to Punjab! High-energy hits, pyrotechnics, and pure Punjabi pride.'
+    },
     {
         'name': 'A.R. Rahman Live Symphony Concert',
         'category': 'music',
@@ -138,18 +208,32 @@ SAMPLE_EVENTS = [
         'description': 'The world-famous British rock band returns to India with light shows, confetti, and legendary anthems!'
     },
     {
-        'name': 'Sunburn Goa Music Festival 2026',
+        'name': 'Arijit Singh Live Soulful Concert',
         'category': 'music',
-        'city': 'pune',
-        'venue_name': 'Vagator Beach Arena, Goa',
-        'price': 2499.00,
-        'rating': 4.8,
-        'organizer': 'Percept Live',
-        'duration_mins': 360,
-        'language': 'English',
+        'city': 'delhi',
+        'venue_name': 'JLN Stadium, New Delhi',
+        'price': 1999.00,
+        'rating': 4.9,
+        'organizer': 'TM Music',
+        'duration_mins': 180,
+        'language': 'Hindi',
         'image_url': 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&auto=format&fit=crop',
         'banner_url': 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=1200&auto=format&fit=crop',
-        'description': 'Asia\'s premier Electronic Dance Music (EDM) festival featuring top global DJs, laser shows, and beach vibes.'
+        'description': 'Immerse yourself in a soulful musical night with India\'s most celebrated romantic playback singer Arijit Singh.'
+    },
+    {
+        'name': 'Gurdas Maan Live Punjabi Folk Night',
+        'category': 'music',
+        'city': 'amritsar',
+        'venue_name': 'Ranjit Avenue Grounds, Amritsar',
+        'price': 1200.00,
+        'rating': 4.9,
+        'organizer': 'Saga Music',
+        'duration_mins': 180,
+        'language': 'Punjabi',
+        'image_url': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop',
+        'banner_url': 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&auto=format&fit=crop',
+        'description': 'Living legend Gurdas Maan performs his legendary Punjabi folk classics live in Amritsar.'
     }
 ]
 

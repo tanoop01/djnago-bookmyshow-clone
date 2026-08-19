@@ -402,7 +402,9 @@ def event_list(request):
         queryset = queryset.filter(category=category)
 
     if city:
-        queryset = queryset.filter(city=city)
+        city_qs = queryset.filter(city=city)
+        if city_qs.exists():
+            queryset = city_qs
 
     if search:
         queryset = queryset.filter(
