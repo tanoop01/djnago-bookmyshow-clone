@@ -2,10 +2,19 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordChangeForm
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.contrib.auth.signals import user_logged_in
+from django.contrib.auth.models import update_last_login
 
 from movies.models import Movie, Booking, Payment, Event, EventBooking
 from movies.utils import get_recommendations
 from .forms import UserRegisterForm, UserUpdateForm
+
+# Disconnect update_last_login signal to prevent write errors on read-only SQLite deployments (Vercel)
+try:
+    user_logged_in.disconnect(update_last_login)
+except Exception:
+    pass
 
 
 def home(request):
@@ -46,9 +55,13 @@ def register(request):
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect('/')
+            try:
+                user = form.save()
+                login(request, user)
+                return redirect('/')
+            except Exception as e:
+                messages.error(request, "Database is currently in read-only mode on Vercel preview. Please use existing credentials to log in.")
+                return redirect('login')
     else:
         form = UserRegisterForm()
     return render(request, 'users/register.html', {'form': form})
@@ -59,7 +72,11 @@ def login_view(request):
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
-            login(request, user)
+            try:
+                login(request, user)
+            except Exception:
+                request.user = user
+
             next_url = request.GET.get('next') or request.POST.get('next')
             if next_url:
                 return redirect(next_url)
@@ -80,7 +97,11 @@ def profile(request):
     if request.method == 'POST':
         u_form = UserUpdateForm(request.POST, instance=request.user)
         if u_form.is_valid():
-            u_form.save()
+            try:
+                u_form.save()
+                messages.success(request, "Profile updated successfully!")
+            except Exception:
+                messages.warning(request, "Profile updates are disabled on read-only preview mode.")
             return redirect('profile')
     else:
         u_form = UserUpdateForm(instance=request.user)
@@ -99,8 +120,12 @@ def reset_password(request):
     if request.method == 'POST':
         form = PasswordChangeForm(user=request.user, data=request.POST)
         if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(request, user)
+            try:
+                user = form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, "Password changed successfully!")
+            except Exception:
+                messages.warning(request, "Password changes are disabled on read-only preview mode.")
             return redirect('profile')
     else:
         form = PasswordChangeForm(user=request.user)

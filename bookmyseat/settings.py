@@ -99,8 +99,8 @@ WSGI_APPLICATION = 'bookmyseat.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# Session Engine: Use signed_cookies for Vercel serverless deployment to prevent read-only SQLite errors
-if os.environ.get('VERCEL') or 'vercel' in os.environ.get('VERCEL_URL', '').lower() or not os.environ.get('DATABASE_URL'):
+# Session Engine: Use signed_cookies for serverless / SQLite deployments to prevent read-only DB write errors
+if not os.environ.get('DATABASE_URL') or os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV') or 'vercel' in os.environ.get('VERCEL_URL', '').lower():
     SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 
 DATABASES = {

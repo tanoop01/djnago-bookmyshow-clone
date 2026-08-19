@@ -111,14 +111,17 @@ def async_email_dispatch(booking_ids):
 
 
 def set_city(request):
-    if request.method == 'POST':
-        city = request.POST.get('city', '').lower()
-        if city:
-            request.session['user_city'] = city
-    elif request.method == 'GET':
-        city = request.GET.get('city', '').lower()
-        if city:
-            request.session['user_city'] = city
+    try:
+        if request.method == 'POST':
+            city = request.POST.get('city', '').lower()
+            if city:
+                request.session['user_city'] = city
+        elif request.method == 'GET':
+            city = request.GET.get('city', '').lower()
+            if city:
+                request.session['user_city'] = city
+    except Exception:
+        pass
     next_url = request.META.get('HTTP_REFERER', '/')
     return redirect(next_url)
 
